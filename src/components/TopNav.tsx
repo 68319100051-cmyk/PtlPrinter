@@ -1,5 +1,4 @@
-import React from 'react';
-import { Plus, User, ShieldCheck, Clock } from 'lucide-react';
+import { Plus, User, ShieldCheck, Clock, Cloud } from 'lucide-react';
 import { UserAccount } from '../types/pawn';
 import { formatThaiDate } from '../utils/thaiFormat';
 
@@ -12,6 +11,7 @@ interface TopNavProps {
   onChangeUser: (user: UserAccount) => void;
   shopName?: string;
   logoUrl?: string;
+  syncStatus?: 'connecting' | 'connected' | 'offline' | 'syncing' | 'error';
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -23,6 +23,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   onChangeUser,
   shopName,
   logoUrl,
+  syncStatus = 'connected',
 }) => {
   const todayStr = formatThaiDate(new Date().toISOString());
 
@@ -93,6 +94,20 @@ export const TopNav: React.FC<TopNavProps> = ({
 
         {/* Zone 3: Primary Action & Quick User Switcher */}
         <div className="flex items-center gap-3 shrink-0">
+          {/* Firebase Cloud Sync Status */}
+          <div className="hidden md:flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-mono bg-slate-800/80 border-slate-700 text-slate-300">
+            <Cloud className={`w-3.5 h-3.5 ${
+              syncStatus === 'connected' ? 'text-emerald-400' :
+              syncStatus === 'syncing' ? 'text-amber-400 animate-pulse' :
+              syncStatus === 'connecting' ? 'text-blue-400' : 'text-slate-400'
+            }`} />
+            <span className="text-[10px]">
+              {syncStatus === 'connected' ? 'Firebase คลาวด์' :
+               syncStatus === 'syncing' ? 'กำลังซิงค์...' :
+               syncStatus === 'connecting' ? 'กำลังเชื่อมต่อ...' : 'แคชในเครื่อง'}
+            </span>
+          </div>
+
           {/* Date Indicator */}
           <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-400 font-mono bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-700">
             <Clock className="w-3.5 h-3.5 text-amber-400" />

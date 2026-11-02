@@ -1,0 +1,61 @@
+{
+  "entities": {
+    "PawnContract": {
+      "title": "PawnContract",
+      "description": "A pawn or consignment contract record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "contractNumber": { "type": "string" },
+        "customerId": { "type": "string" },
+        "loanAmount": { "type": "number" },
+        "monthlyInterestRate": { "type": "number" },
+        "status": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "startDate": { "type": "string" }
+      },
+      "required": ["id", "contractNumber", "loanAmount", "status"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Customer personal profile for AG Customer Intelligence",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "citizenId": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "phone": { "type": "string" }
+      },
+      "required": ["id", "firstName", "lastName", "citizenId"]
+    },
+    "ShopSettings": {
+      "title": "ShopSettings",
+      "description": "Store configuration and stepped interest tiers",
+      "type": "object",
+      "properties": {
+        "shopName": { "type": "string" },
+        "phone": { "type": "string" }
+      },
+      "required": ["shopName"]
+    }
+  },
+  "firestore": {
+    "/contracts/{contractId}": {
+      "schema": { "$ref": "#/entities/PawnContract" },
+      "description": "Active and completed pawn contracts"
+    },
+    "/archived_contracts/{contractId}": {
+      "schema": { "$ref": "#/entities/PawnContract" },
+      "description": "Archived closed contracts"
+    },
+    "/customers/{customerId}": {
+      "schema": { "$ref": "#/entities/Customer" },
+      "description": "Customer records"
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/ShopSettings" },
+      "description": "Shop and business settings"
+    }
+  }
+}

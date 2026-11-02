@@ -36,6 +36,13 @@ import {
   getCurrentUser,
   setCurrentUser
 } from './utils/storage';
+import {
+  initFirebaseSync,
+  syncContractToCloud,
+  syncCustomerToCloud,
+  syncSettingsToCloud,
+  SyncStatus
+} from './services/firebaseSync';
 
 export default function App() {
   const [contracts, setContracts] = useState<PawnContract[]>(() => getContracts());
@@ -44,9 +51,35 @@ export default function App() {
   const [settings, setSettings] = useState<ShopSettings>(() => getSettings());
   const [users, setUsers] = useState<UserAccount[]>(() => getUsers());
   const [currentUser, setCurUser] = useState<UserAccount>(() => getCurrentUser());
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>('connecting');
 
   // Navigation tab
   const [currentTab, setCurrentTab] = useState<'workstation' | 'customers' | 'reports' | 'backup' | 'settings'>('workstation');
+
+  // Initialize Firebase Real-Time Synchronization
+  useEffect(() => {
+    const unsubscribe = initFirebaseSync({
+      initialLocalContracts: contracts,
+      initialLocalCustomers: customers,
+      initialLocalSettings: settings,
+      onContractsUpdated: (cloudContracts) => {
+        setContracts(cloudContracts);
+      },
+      onCustomersUpdated: (cloudCustomers) => {
+        setCustomers(cloudCustomers);
+      },
+      onSettingsUpdated: (cloudSettings) => {
+        setSettings(cloudSettings);
+      },
+      onStatusChanged: (status) => {
+        setSyncStatus(status);
+      },
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   // Modals state
   const [isNewContractOpen, setIsNewContractOpen] = useState(false);
@@ -98,11 +131,13 @@ export default function App() {
       const updatedCustomers = [newCustomer, ...customers];
       setCustomers(updatedCustomers);
       saveCustomers(updatedCustomers);
+      syncCustomerToCloud(newCustomer).catch(console.error);
     }
 
     const updatedContracts = [newContract, ...contracts];
     setContracts(updatedContracts);
     saveContracts(updatedContracts);
+    syncContractToCloud(newContract).catch(console.error);
 
     // Prompt to print immediately
     setActiveContract(newContract);
@@ -115,6 +150,7 @@ export default function App() {
     const updated = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
     setContracts(updated);
     saveContracts(updated);
+    syncContractToCloud(updatedContract).catch(console.error);
 
     // Offer to print receipt
     setActiveContract(updatedContract);
@@ -128,6 +164,7 @@ export default function App() {
     const updated = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
     setContracts(updated);
     saveContracts(updated);
+    syncContractToCloud(updatedContract).catch(console.error);
 
     // Offer to print release receipt
     setActiveContract(updatedContract);
@@ -176,6 +213,7 @@ export default function App() {
         const updated = contracts.map(c => c.id === targetContract.id ? updatedContract : c);
         setContracts(updated);
         saveContracts(updated);
+        syncContractToCloud(updatedContract).catch(console.error);
       },
     });
     setIsSecurityOpen(true);
@@ -186,6 +224,7 @@ export default function App() {
     const updated = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
     setContracts(updated);
     saveContracts(updated);
+    syncContractToCloud(updatedContract).catch(console.error);
     setActiveContract(updatedContract);
   };
 
@@ -193,6 +232,7 @@ export default function App() {
   const handleSaveSettings = (newSettings: ShopSettings) => {
     setSettings(newSettings);
     saveSettings(newSettings);
+    syncSettingsToCloud(newSettings).catch(console.error);
   };
 
   const handleSaveUsers = (newUsers: UserAccount[]) => {
@@ -211,6 +251,7 @@ export default function App() {
     }
     setCustomers(updated);
     saveCustomers(updated);
+    syncCustomerToCloud(newOrUpdatedCust).catch(console.error);
   };
 
   return (
@@ -235,6 +276,7 @@ export default function App() {
         onChangeUser={handleUserChange}
         shopName={settings.shopName}
         logoUrl={settings.logoUrl}
+        syncStatus={syncStatus}
       />
 
       {/* Main Content Area */}
