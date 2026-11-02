@@ -8,7 +8,8 @@ import {
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType, testConnection } from '../firebase/config';
 import { PawnContract, Customer, ShopSettings } from '../types/pawn';
-import { saveContracts, saveCustomers, saveSettings, saveArchivedContracts } from '../utils/storage';
+import { SecondhandBuyIn } from '../types/buyIn';
+import { saveContracts, saveCustomers, saveSettings, saveArchivedContracts, saveSecondhandBuyIns } from '../utils/storage';
 
 export type SyncStatus = 'connecting' | 'connected' | 'offline' | 'syncing' | 'error';
 
@@ -49,30 +50,47 @@ export async function syncSettingsToCloud(settings: ShopSettings): Promise<void>
 }
 
 /**
+ * Sync individual secondhand buy-in to Firestore
+ */
+export async function syncSecondhandToCloud(item: SecondhandBuyIn): Promise<void> {
+  const path = `secondhand_buyins/${item.id}`;
+  try {
+    await setDoc(doc(db, 'secondhand_buyins', item.id), item);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
+/**
  * Initialize 2-way real-time synchronization with Firestore
  */
 export function initFirebaseSync(callbacks: {
   onContractsUpdated: (contracts: PawnContract[]) => void;
   onCustomersUpdated: (customers: Customer[]) => void;
   onSettingsUpdated: (settings: ShopSettings) => void;
+  onSecondhandUpdated?: (items: SecondhandBuyIn[]) => void;
   onStatusChanged: (status: SyncStatus, message?: string) => void;
   initialLocalContracts: PawnContract[];
   initialLocalCustomers: Customer[];
   initialLocalSettings: ShopSettings;
+  initialLocalSecondhand?: SecondhandBuyIn[];
 }): () => void {
   const {
     onContractsUpdated,
     onCustomersUpdated,
     onSettingsUpdated,
+    onSecondhandUpdated,
     onStatusChanged,
     initialLocalContracts,
     initialLocalCustomers,
     initialLocalSettings,
+    initialLocalSecondhand = [],
   } = callbacks;
 
   let unsubscribeContracts: (() => void) | null = null;
   let unsubscribeCustomers: (() => void) | null = null;
   let unsubscribeSettings: (() => void) | null = null;
+  let unsubscribeSecondhand: (() => void) | null = null;
 
   async function start() {
     onStatusChanged('connecting', 'กำลังเชื่อมต่อกับ Firebase Firestore...');
@@ -114,6 +132,17 @@ export function initFirebaseSync(callbacks: {
 
       if (settingsSnap.empty) {
         await setDoc(doc(db, 'settings', 'current'), initialLocalSettings);
+      }
+
+      // Check secondhand buy-ins in Firestore
+      const secondhandSnap = await getDocs(collection(db, 'secondhand_buyins')).catch(err => {
+        handleFirestoreError(err, OperationType.GET, 'secondhand_buyins');
+      });
+
+      if (secondhandSnap.empty && initialLocalSecondhand.length > 0) {
+        for (const item of initialLocalSecondhand) {
+          await setDoc(doc(db, 'secondhand_buyins', item.id), item);
+        }
       }
 
       onStatusChanged('connected', 'เชื่อมต่อ Firebase Firestore สำเร็จ (เรียลไทม์คลาวด์)');
@@ -167,6 +196,23 @@ export function initFirebaseSync(callbacks: {
           console.error('Settings snapshot error', error);
         }
       );
+
+      if (onSecondhandUpdated) {
+        unsubscribeSecondhand = onSnapshot(
+          collection(db, 'secondhand_buyins'),
+          (snapshot) => {
+            if (!snapshot.empty) {
+              const list: SecondhandBuyIn[] = [];
+              snapshot.forEach((d) => list.push(d.data() as SecondhandBuyIn));
+              saveSecondhandBuyIns(list);
+              onSecondhandUpdated(list);
+            }
+          },
+          (error) => {
+            console.error('Secondhand snapshot error', error);
+          }
+        );
+      }
     } catch (err) {
       console.error('Error during initial Firebase sync', err);
       onStatusChanged('error', 'เกิดข้อผิดพลาดในการเชื่อมต่อ Firebase');
@@ -179,5 +225,6 @@ export function initFirebaseSync(callbacks: {
     if (unsubscribeContracts) unsubscribeContracts();
     if (unsubscribeCustomers) unsubscribeCustomers();
     if (unsubscribeSettings) unsubscribeSettings();
+    if (unsubscribeSecondhand) unsubscribeSecondhand();
   };
 }

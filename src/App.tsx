@@ -16,6 +16,9 @@ import { SettingsModal } from './components/SettingsModal';
 import { BackupArchiveModal } from './components/BackupArchiveModal';
 import { SecurityAuthModal } from './components/SecurityAuthModal';
 import { EditContractModal } from './components/EditContractModal';
+import { SecondhandView } from './components/SecondhandView';
+import { BuyInLaptopModal } from './components/BuyInLaptopModal';
+import { PrintBuyInAgreementModal } from './components/PrintBuyInAgreementModal';
 import {
   PawnContract,
   Customer,
@@ -23,6 +26,7 @@ import {
   UserAccount,
   InterestPayment
 } from './types/pawn';
+import { SecondhandBuyIn } from './types/buyIn';
 import {
   getContracts,
   saveContracts,
@@ -34,13 +38,16 @@ import {
   getUsers,
   saveUsers,
   getCurrentUser,
-  setCurrentUser
+  setCurrentUser,
+  getSecondhandBuyIns,
+  saveSecondhandBuyIns
 } from './utils/storage';
 import {
   initFirebaseSync,
   syncContractToCloud,
   syncCustomerToCloud,
   syncSettingsToCloud,
+  syncSecondhandToCloud,
   SyncStatus
 } from './services/firebaseSync';
 
@@ -51,10 +58,11 @@ export default function App() {
   const [settings, setSettings] = useState<ShopSettings>(() => getSettings());
   const [users, setUsers] = useState<UserAccount[]>(() => getUsers());
   const [currentUser, setCurUser] = useState<UserAccount>(() => getCurrentUser());
+  const [secondhandBuyIns, setSecondhandBuyIns] = useState<SecondhandBuyIn[]>(() => getSecondhandBuyIns());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('connecting');
 
   // Navigation tab
-  const [currentTab, setCurrentTab] = useState<'workstation' | 'customers' | 'reports' | 'backup' | 'settings'>('workstation');
+  const [currentTab, setCurrentTab] = useState<'workstation' | 'secondhand' | 'customers' | 'reports' | 'backup' | 'settings'>('workstation');
 
   // Initialize Firebase Real-Time Synchronization
   useEffect(() => {
@@ -62,6 +70,7 @@ export default function App() {
       initialLocalContracts: contracts,
       initialLocalCustomers: customers,
       initialLocalSettings: settings,
+      initialLocalSecondhand: secondhandBuyIns,
       onContractsUpdated: (cloudContracts) => {
         setContracts(cloudContracts);
       },
@@ -70,6 +79,9 @@ export default function App() {
       },
       onSettingsUpdated: (cloudSettings) => {
         setSettings(cloudSettings);
+      },
+      onSecondhandUpdated: (cloudSecondhand) => {
+        setSecondhandBuyIns(cloudSecondhand);
       },
       onStatusChanged: (status) => {
         setSyncStatus(status);
@@ -91,11 +103,14 @@ export default function App() {
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [isSecurityOpen, setIsSecurityOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isBuyInLaptopOpen, setIsBuyInLaptopOpen] = useState(false);
+  const [isPrintBuyInOpen, setIsPrintBuyInOpen] = useState(false);
 
   // Active items for modals
   const [activeContract, setActiveContract] = useState<PawnContract | null>(null);
   const [activePrintMode, setActivePrintMode] = useState<'slip' | 'half_a4' | 'full_contract' | 'interest_receipt' | 'redeem_receipt'>('half_a4');
   const [activeReceipt, setActiveReceipt] = useState<InterestPayment | undefined>(undefined);
+  const [activeBuyIn, setActiveBuyIn] = useState<SecondhandBuyIn | null>(null);
 
   // Security gatekeeper state
   const [securityAction, setSecurityAction] = useState<{
@@ -116,6 +131,7 @@ export default function App() {
     setContracts(getContracts());
     setArchivedContracts(getArchivedContracts());
     setCustomers(getCustomers());
+    setSecondhandBuyIns(getSecondhandBuyIns());
     setSettings(getSettings());
     setUsers(getUsers());
   };
@@ -123,6 +139,32 @@ export default function App() {
   const handleUserChange = (u: UserAccount) => {
     setCurUser(u);
     setCurrentUser(u);
+  };
+
+  // Secondhand Notebook Buy-in handlers
+  const handleSaveNewBuyIn = (newBuyIn: SecondhandBuyIn, newCustomer?: Customer) => {
+    if (newCustomer) {
+      const updatedCustomers = [newCustomer, ...customers];
+      setCustomers(updatedCustomers);
+      saveCustomers(updatedCustomers);
+      syncCustomerToCloud(newCustomer).catch(console.error);
+    }
+
+    const updated = [newBuyIn, ...secondhandBuyIns];
+    setSecondhandBuyIns(updated);
+    saveSecondhandBuyIns(updated);
+    syncSecondhandToCloud(newBuyIn).catch(console.error);
+
+    // Offer to print legal buy-in agreement immediately
+    setActiveBuyIn(newBuyIn);
+    setIsPrintBuyInOpen(true);
+  };
+
+  const handleUpdateBuyIn = (updatedBuyIn: SecondhandBuyIn) => {
+    const updated = secondhandBuyIns.map(item => item.id === updatedBuyIn.id ? updatedBuyIn : item);
+    setSecondhandBuyIns(updated);
+    saveSecondhandBuyIns(updated);
+    syncSecondhandToCloud(updatedBuyIn).catch(console.error);
   };
 
   // 1. Create New Contract
@@ -271,6 +313,8 @@ export default function App() {
           }
         }}
         onOpenNewContract={() => setIsNewContractOpen(true)}
+        onOpenNewBuyIn={() => setIsBuyInLaptopOpen(true)}
+        secondhandCount={secondhandBuyIns.filter(i => i.status !== 'sold').length}
         currentUser={currentUser}
         allUsers={users}
         onChangeUser={handleUserChange}
@@ -303,6 +347,20 @@ export default function App() {
             }}
             onRequestEditContract={handleRequestEditContract}
             onForfeitContract={handleForfeitContract}
+          />
+        )}
+
+        {currentTab === 'secondhand' && (
+          <SecondhandView
+            buyIns={secondhandBuyIns}
+            settings={settings}
+            currentUser={currentUser}
+            onOpenNewBuyIn={() => setIsBuyInLaptopOpen(true)}
+            onPrintBuyIn={(item) => {
+              setActiveBuyIn(item);
+              setIsPrintBuyInOpen(true);
+            }}
+            onUpdateBuyIn={handleUpdateBuyIn}
           />
         )}
 
@@ -441,6 +499,27 @@ export default function App() {
           authorizerName={editSession.authorizerName}
           auditReason={editSession.auditReason}
           onSave={handleSaveEditedContract}
+        />
+      )}
+
+      {/* 10. Secondhand Notebook Buy-in Modal */}
+      <BuyInLaptopModal
+        isOpen={isBuyInLaptopOpen}
+        onClose={() => setIsBuyInLaptopOpen(false)}
+        onSave={handleSaveNewBuyIn}
+        customers={customers}
+        existingBuyIns={secondhandBuyIns}
+        settings={settings}
+        currentUser={currentUser}
+      />
+
+      {/* 11. Secondhand Buy-in Legal Agreement / Bill of Sale Print Modal */}
+      {activeBuyIn && (
+        <PrintBuyInAgreementModal
+          isOpen={isPrintBuyInOpen}
+          onClose={() => setIsPrintBuyInOpen(false)}
+          buyIn={activeBuyIn}
+          settings={settings}
         />
       )}
     </div>

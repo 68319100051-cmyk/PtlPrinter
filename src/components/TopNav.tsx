@@ -3,9 +3,11 @@ import { UserAccount } from '../types/pawn';
 import { formatThaiDate } from '../utils/thaiFormat';
 
 interface TopNavProps {
-  currentTab: 'workstation' | 'customers' | 'reports' | 'backup' | 'settings';
-  onSelectTab: (tab: 'workstation' | 'customers' | 'reports' | 'backup' | 'settings') => void;
+  currentTab: 'workstation' | 'secondhand' | 'customers' | 'reports' | 'backup' | 'settings';
+  onSelectTab: (tab: 'workstation' | 'secondhand' | 'customers' | 'reports' | 'backup' | 'settings') => void;
   onOpenNewContract: () => void;
+  onOpenNewBuyIn?: () => void;
+  secondhandCount?: number;
   currentUser: UserAccount;
   allUsers: UserAccount[];
   onChangeUser: (user: UserAccount) => void;
@@ -18,6 +20,8 @@ export const TopNav: React.FC<TopNavProps> = ({
   currentTab,
   onSelectTab,
   onOpenNewContract,
+  onOpenNewBuyIn,
+  secondhandCount = 0,
   currentUser,
   allUsers,
   onChangeUser,
@@ -57,7 +61,7 @@ export const TopNav: React.FC<TopNavProps> = ({
         <nav className="hidden xl:flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl text-xs font-medium text-slate-300 shrink-0 border border-slate-700/60">
           <button
             onClick={() => onSelectTab('workstation')}
-            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap ${
+            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'workstation'
                 ? 'bg-amber-400 text-slate-900 font-bold shadow-xs'
                 : 'hover:text-white hover:bg-slate-700/50'
@@ -66,8 +70,25 @@ export const TopNav: React.FC<TopNavProps> = ({
             หน้าจอขายฝาก
           </button>
           <button
+            onClick={() => onSelectTab('secondhand')}
+            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+              currentTab === 'secondhand'
+                ? 'bg-amber-400 text-slate-900 font-bold shadow-xs'
+                : 'hover:text-white hover:bg-slate-700/50 text-amber-300'
+            }`}
+          >
+            <span>รับซื้อของเก่า (โน็ตบุ้ค)</span>
+            {secondhandCount > 0 && (
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono font-bold ${
+                currentTab === 'secondhand' ? 'bg-slate-950 text-amber-400' : 'bg-amber-400 text-slate-950'
+              }`}>
+                {secondhandCount}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => onSelectTab('customers')}
-            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap ${
+            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'customers'
                 ? 'bg-amber-400 text-slate-900 font-bold shadow-xs'
                 : 'hover:text-white hover:bg-slate-700/50'
@@ -77,7 +98,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           </button>
           <button
             onClick={() => onSelectTab('reports')}
-            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap ${
+            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'reports'
                 ? 'bg-amber-400 text-slate-900 font-bold shadow-xs'
                 : 'hover:text-white hover:bg-slate-700/50'
@@ -87,7 +108,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           </button>
           <button
             onClick={() => onSelectTab('backup')}
-            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap ${
+            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'backup'
                 ? 'bg-amber-400 text-slate-900 font-bold shadow-xs'
                 : 'hover:text-white hover:bg-slate-700/50'
@@ -97,7 +118,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           </button>
           <button
             onClick={() => onSelectTab('settings')}
-            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap ${
+            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap cursor-pointer ${
               currentTab === 'settings'
                 ? 'bg-amber-400 text-slate-900 font-bold shadow-xs'
                 : 'hover:text-white hover:bg-slate-700/50'
@@ -149,15 +170,26 @@ export const TopNav: React.FC<TopNavProps> = ({
             <ShieldCheck className="w-3.5 h-3.5 text-amber-400 absolute right-1.5 top-2.5 pointer-events-none" />
           </div>
 
-          {/* Primary CTA */}
-          <button
-            onClick={onOpenNewContract}
-            className="px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all shadow-xs flex items-center gap-1 whitespace-nowrap shrink-0 active:scale-95"
-          >
-            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-            <span className="hidden sm:inline">เปิดสัญญาใหม่</span>
-            <span className="sm:hidden">สัญญาใหม่</span>
-          </button>
+          {/* Contextual Action Button */}
+          {currentTab === 'secondhand' && onOpenNewBuyIn ? (
+            <button
+              onClick={onOpenNewBuyIn}
+              className="px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all shadow-xs flex items-center gap-1 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span className="hidden sm:inline">รับซื้อโน็ตบุ้ค</span>
+              <span className="sm:hidden">+ รับซื้อ</span>
+            </button>
+          ) : (
+            <button
+              onClick={onOpenNewContract}
+              className="px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all shadow-xs flex items-center gap-1 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span className="hidden sm:inline">เปิดสัญญาใหม่</span>
+              <span className="sm:hidden">สัญญาใหม่</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -165,7 +197,7 @@ export const TopNav: React.FC<TopNavProps> = ({
       <div className="xl:hidden flex items-center gap-1 px-3 py-1 border-t border-slate-800 bg-slate-950/90 overflow-x-auto text-xs scrollbar-none shrink-0 w-full">
         <button
           onClick={() => onSelectTab('workstation')}
-          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors ${
+          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors cursor-pointer ${
             currentTab === 'workstation'
               ? 'bg-amber-400 text-slate-900 font-bold'
               : 'text-slate-400 hover:text-white'
@@ -175,8 +207,24 @@ export const TopNav: React.FC<TopNavProps> = ({
         </button>
         <span className="text-slate-700 text-[10px]">·</span>
         <button
+          onClick={() => onSelectTab('secondhand')}
+          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors flex items-center gap-1 cursor-pointer ${
+            currentTab === 'secondhand'
+              ? 'bg-amber-400 text-slate-900 font-bold'
+              : 'text-amber-300 hover:text-white'
+          }`}
+        >
+          <span>รับซื้อของเก่า</span>
+          {secondhandCount > 0 && (
+            <span className="px-1 py-0.2 rounded-full text-[9px] font-mono bg-amber-400 text-slate-950 font-bold">
+              {secondhandCount}
+            </span>
+          )}
+        </button>
+        <span className="text-slate-700 text-[10px]">·</span>
+        <button
           onClick={() => onSelectTab('customers')}
-          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors ${
+          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors cursor-pointer ${
             currentTab === 'customers'
               ? 'bg-amber-400 text-slate-900 font-bold'
               : 'text-slate-400 hover:text-white'
@@ -187,7 +235,7 @@ export const TopNav: React.FC<TopNavProps> = ({
         <span className="text-slate-700 text-[10px]">·</span>
         <button
           onClick={() => onSelectTab('reports')}
-          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors ${
+          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors cursor-pointer ${
             currentTab === 'reports'
               ? 'bg-amber-400 text-slate-900 font-bold'
               : 'text-slate-400 hover:text-white'
@@ -198,7 +246,7 @@ export const TopNav: React.FC<TopNavProps> = ({
         <span className="text-slate-700 text-[10px]">·</span>
         <button
           onClick={() => onSelectTab('backup')}
-          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors ${
+          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors cursor-pointer ${
             currentTab === 'backup'
               ? 'bg-amber-400 text-slate-900 font-bold'
               : 'text-slate-400 hover:text-white'
@@ -209,7 +257,7 @@ export const TopNav: React.FC<TopNavProps> = ({
         <span className="text-slate-700 text-[10px]">·</span>
         <button
           onClick={() => onSelectTab('settings')}
-          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors ${
+          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors cursor-pointer ${
             currentTab === 'settings'
               ? 'bg-amber-400 text-slate-900 font-bold'
               : 'text-slate-400 hover:text-white'
@@ -221,3 +269,4 @@ export const TopNav: React.FC<TopNavProps> = ({
     </header>
   );
 };
+

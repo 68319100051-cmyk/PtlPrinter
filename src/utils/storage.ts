@@ -1,4 +1,5 @@
 import { PawnContract, Customer, ShopSettings, UserAccount } from '../types/pawn';
+import { SecondhandBuyIn } from '../types/buyIn';
 
 const STORAGE_KEYS = {
   CONTRACTS: 'anchan_pawn_contracts_v2',
@@ -7,6 +8,7 @@ const STORAGE_KEYS = {
   SETTINGS: 'anchan_pawn_settings_v2',
   USERS: 'anchan_pawn_users_v2',
   CURRENT_USER: 'anchan_pawn_current_user_v2',
+  SECONDHAND: 'anchan_secondhand_buyin_v1',
 };
 
 export const DEFAULT_USERS: UserAccount[] = [
@@ -434,18 +436,278 @@ export function generateNextContractNumber(existingContracts: PawnContract[]): s
   return `${prefix}${nextSeq}`;
 }
 
+export const INITIAL_SECONDHAND_BUYINS: SecondhandBuyIn[] = [
+  {
+    id: 'nb-1001',
+    buyInNumber: 'NB-6911001',
+    date: '2026-10-28T11:20:00.000Z',
+    category: 'laptop',
+    notebookSpecs: {
+      brand: 'Asus',
+      model: 'TUF Gaming A15 FA506IC',
+      serialNumber: 'M9NRCX01A892147',
+      processor: 'AMD Ryzen 7 4800H (8 Cores / 16 Threads)',
+      ramGb: 16,
+      storage: 'SSD 512GB M.2 NVMe PCIe',
+      gpu: 'NVIDIA GeForce RTX 3050 (4GB GDDR6)',
+      screenSize: '15.6" FHD (1920x1080) 144Hz IPS',
+      batteryStatus: 'good',
+      cosmeticGrade: 'A',
+      hasCharger: true,
+      hasBox: true,
+      hasBag: true,
+      isICloudOrPasscodeCleared: true,
+      checklist: {
+        keyboard: true,
+        screen: true,
+        touchpad: true,
+        wifiBluetooth: true,
+        webcamMic: true,
+        speakers: true,
+        usbPorts: true,
+        chargingPort: true,
+      },
+      defectsNotes: 'สภาพสวยงามมาก ไร้รอยตกกระแทก คีย์บอร์ดไฟ RGB ใช้งานได้ปกติทุกปุ่ม',
+    },
+    sellerSnapshot: {
+      id: 'cust-4',
+      citizenId: '1930200876541',
+      prefix: 'นาย',
+      firstName: 'ธนภัทร',
+      lastName: 'ธรรมศักดิ์',
+      phone: '0923456712',
+      address: '88/4 ถนนพัฒนา ตำบลคูหาสวรรค์ อำเภอเมือง จังหวัดพัทลุง 93000',
+      createdAt: '2026-06-18T09:20:00.000Z',
+    },
+    purchasePrice: 12500,
+    targetSalePrice: 15900,
+    paymentMethod: 'transfer',
+    status: 'ready_to_sell',
+    photos: [
+      'https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=600&q=80',
+    ],
+    buyerStaff: 'คุณชัยกร (เจ้าของร้าน / ผู้ดูแลระบบ)',
+    notes: 'เครื่องศูนย์ไทย ประกันศูนย์หมดแล้ว เทสผ่าน 100% สภาพพร้อมจำหน่ายหน้าร้าน',
+    legalOwnershipDeclaration: true,
+    createdAt: '2026-10-28T11:20:00.000Z',
+  },
+  {
+    id: 'nb-1002',
+    buyInNumber: 'NB-6911002',
+    date: '2026-10-30T14:40:00.000Z',
+    category: 'laptop',
+    notebookSpecs: {
+      brand: 'Lenovo',
+      model: 'IdeaPad 3 15ITL6',
+      serialNumber: 'PF3N89K20084',
+      processor: 'Intel Core i5-1135G7 (4 Cores / 8 Threads)',
+      ramGb: 8,
+      storage: 'SSD 512GB M.2 NVMe',
+      gpu: 'Intel Iris Xe Graphics (Onboard)',
+      screenSize: '15.6" FHD Anti-glare',
+      batteryStatus: 'fair',
+      cosmeticGrade: 'B',
+      hasCharger: true,
+      hasBox: false,
+      hasBag: true,
+      isICloudOrPasscodeCleared: true,
+      checklist: {
+        keyboard: true,
+        screen: true,
+        touchpad: true,
+        wifiBluetooth: true,
+        webcamMic: true,
+        speakers: true,
+        usbPorts: true,
+        chargingPort: true,
+      },
+      defectsNotes: 'มีรอยขนแมวบางๆ ด้านฝาหลัง แบตเตอรี่เก็บไฟได้ประมาณ 1.5 ชม.',
+    },
+    sellerSnapshot: {
+      id: 'cust-1',
+      citizenId: '1939900234561',
+      prefix: 'นาย',
+      firstName: 'กฤษณะ',
+      lastName: 'พงษ์ไพศาล',
+      phone: '0819876543',
+      address: '55/12 ถนนราเมศวร์ ตำบลคูหาสวรรค์ อำเภอเมือง จังหวัดพัทลุง 93000',
+      createdAt: '2026-01-10T10:00:00.000Z',
+    },
+    purchasePrice: 7500,
+    targetSalePrice: 9900,
+    paymentMethod: 'cash',
+    status: 'in_stock',
+    photos: [
+      'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?auto=format&fit=crop&w=600&q=80',
+    ],
+    buyerStaff: 'ช่างวิทย์ (ผู้เชี่ยวชาญ / แคชเชียร์ 1)',
+    notes: 'ตรวจเช็คเบื้องต้นเรียบร้อย เหมาะสำหรับทำงานเอกสารและเรียนออนไลน์',
+    legalOwnershipDeclaration: true,
+    createdAt: '2026-10-30T14:40:00.000Z',
+  },
+  {
+    id: 'nb-1003',
+    buyInNumber: 'NB-6910005',
+    date: '2026-10-18T10:15:00.000Z',
+    category: 'laptop',
+    notebookSpecs: {
+      brand: 'Apple',
+      model: 'MacBook Air 13.6" M2 (2022) สี Midnight',
+      serialNumber: 'C02JD77NQ05D',
+      processor: 'Apple M2 (8-core CPU / 8-core GPU)',
+      ramGb: 8,
+      storage: 'SSD 256GB Unified Storage',
+      gpu: 'Apple M2 8-Core GPU',
+      screenSize: '13.6" Liquid Retina Display True Tone',
+      batteryStatus: 'good',
+      cosmeticGrade: 'A',
+      hasCharger: true,
+      hasBox: true,
+      hasBag: false,
+      isICloudOrPasscodeCleared: true,
+      checklist: {
+        keyboard: true,
+        screen: true,
+        touchpad: true,
+        wifiBluetooth: true,
+        webcamMic: true,
+        speakers: true,
+        usbPorts: true,
+        chargingPort: true,
+      },
+      defectsNotes: 'สุขภาพแบตเตอรี่ 94% Cycle Count 86 รอบ ปลดล็อค iCloud เรียบร้อย',
+    },
+    sellerSnapshot: {
+      id: 'cust-2',
+      citizenId: '0933556001234',
+      prefix: 'นางสาว',
+      firstName: 'พรทิพย์',
+      lastName: 'สุขสมบูรณ์ (หจก. พัทลุงก่อสร้าง)',
+      phone: '0845551122',
+      address: '124/8 หมู่ 2 ตำบลควนมะพร้าว อำเภอเมือง จังหวัดพัทลุง 93000',
+      createdAt: '2026-03-15T11:30:00.000Z',
+    },
+    purchasePrice: 18500,
+    targetSalePrice: 23500,
+    paymentMethod: 'transfer',
+    status: 'sold',
+    soldPrice: 22900,
+    soldDate: '2026-10-25T16:30:00.000Z',
+    soldCustomerName: 'คุณภานุวัฒน์ (ลูกค้าประจำพัทลุง)',
+    photos: [
+      'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=600&q=80',
+    ],
+    buyerStaff: 'คุณชัยกร (เจ้าของร้าน / ผู้ดูแลระบบ)',
+    notes: 'ขายออกเรียบร้อย รับประกันหลังการขาย 30 วัน',
+    legalOwnershipDeclaration: true,
+    createdAt: '2026-10-18T10:15:00.000Z',
+  },
+  {
+    id: 'nb-1004',
+    buyInNumber: 'NB-6911003',
+    date: '2026-11-01T09:30:00.000Z',
+    category: 'laptop',
+    notebookSpecs: {
+      brand: 'Acer',
+      model: 'Nitro 5 AN515-58-59JP',
+      serialNumber: 'NHQFKST00234188A',
+      processor: 'Intel Core i5-12500H (12 Cores / 16 Threads)',
+      ramGb: 16,
+      storage: 'SSD 512GB M.2 NVMe PCIe 4.0',
+      gpu: 'NVIDIA GeForce RTX 3050 Ti (4GB GDDR6)',
+      screenSize: '15.6" FHD 144Hz SlimBezel',
+      batteryStatus: 'good',
+      cosmeticGrade: 'B',
+      hasCharger: true,
+      hasBox: true,
+      hasBag: false,
+      isICloudOrPasscodeCleared: true,
+      checklist: {
+        keyboard: true,
+        screen: true,
+        touchpad: true,
+        wifiBluetooth: true,
+        webcamMic: true,
+        speakers: true,
+        usbPorts: true,
+        chargingPort: true,
+      },
+      defectsNotes: 'มีฝุ่นสะสมตามช่องระบายความร้อน นำส่งช่างแกะเป่าฝุ่นและลง Windows 11 ใหม่',
+    },
+    sellerSnapshot: {
+      id: 'cust-3',
+      citizenId: '3930100456782',
+      prefix: 'นาย',
+      firstName: 'ธีระพล',
+      lastName: 'พรหมเกิด (เทศบาลตำบลเมืองพัทลุง)',
+      phone: '0834268058',
+      address: 'ถนนพัทลุง ตำบลคูหาสวรรค์ อำเภอเมือง จังหวัดพัทลุง 93000',
+      createdAt: '2026-05-20T14:15:00.000Z',
+    },
+    purchasePrice: 13500,
+    targetSalePrice: 16900,
+    paymentMethod: 'transfer',
+    status: 'under_repair',
+    photos: [
+      'https://images.unsplash.com/photo-1544731612-de7f96afe55f?auto=format&fit=crop&w=600&q=80',
+    ],
+    buyerStaff: 'ช่างเอก (หัวหน้าช่าง / ผู้จัดการ)',
+    notes: 'ส่งช่างเอกเช็คพัดลม ทำความสะอาดซิลิโคน เตรียมตั้งขายหน้าร้าน',
+    legalOwnershipDeclaration: true,
+    createdAt: '2026-11-01T09:30:00.000Z',
+  },
+];
+
+export function getSecondhandBuyIns(): SecondhandBuyIn[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.SECONDHAND);
+    if (!raw) {
+      saveSecondhandBuyIns(INITIAL_SECONDHAND_BUYINS);
+      return INITIAL_SECONDHAND_BUYINS;
+    }
+    return JSON.parse(raw);
+  } catch (err) {
+    console.error('Error reading secondhand items from storage', err);
+    return INITIAL_SECONDHAND_BUYINS;
+  }
+}
+
+export function saveSecondhandBuyIns(items: SecondhandBuyIn[]): void {
+  localStorage.setItem(STORAGE_KEYS.SECONDHAND, JSON.stringify(items));
+}
+
+/**
+ * Generate Next Buy-In Number (e.g. NB-6911004)
+ */
+export function generateNextBuyInNumber(existingItems: SecondhandBuyIn[]): string {
+  const now = new Date();
+  const thaiYear = String(now.getFullYear() + 543).slice(-2);
+  const thaiMonth = String(now.getMonth() + 1).padStart(2, '0');
+  const prefix = `NB-${thaiYear}${thaiMonth}`;
+
+  const currentMonthItems = existingItems.filter(item => item.buyInNumber.startsWith(prefix));
+  const maxSeq = currentMonthItems.reduce((max, item) => {
+    const seq = parseInt(item.buyInNumber.slice(prefix.length), 10);
+    return !isNaN(seq) && seq > max ? seq : max;
+  }, 0);
+
+  const nextSeq = String(maxSeq + 1).padStart(3, '0');
+  return `${prefix}${nextSeq}`;
+}
+
 /**
  * Export complete backup database as JSON string
  */
 export function exportDatabaseBackup(): string {
   const data = {
     app: 'Anchan Pawn Pro',
-    version: '2.0.0',
+    version: '2.1.0',
     owner: 'คุณชัยกร (Chaiyakorn)',
     exportDate: new Date().toISOString(),
     contracts: getContracts(),
     archivedContracts: getArchivedContracts(),
     customers: getCustomers(),
+    secondhandBuyIns: getSecondhandBuyIns(),
     settings: getSettings(),
     users: getUsers(),
   };
@@ -467,6 +729,9 @@ export function restoreDatabaseBackup(jsonData: string): { success: boolean; mes
     }
     if (Array.isArray(parsed.customers)) {
       saveCustomers(parsed.customers);
+    }
+    if (Array.isArray(parsed.secondhandBuyIns)) {
+      saveSecondhandBuyIns(parsed.secondhandBuyIns);
     }
     if (parsed.settings) {
       saveSettings(parsed.settings);
@@ -510,8 +775,10 @@ export function archiveClosedContracts(): { archivedCount: number } {
 export function resetToSampleData(): void {
   saveContracts(INITIAL_CONTRACTS);
   saveCustomers(INITIAL_CUSTOMERS);
+  saveSecondhandBuyIns(INITIAL_SECONDHAND_BUYINS);
   saveSettings(DEFAULT_SETTINGS);
   saveUsers(DEFAULT_USERS);
   saveArchivedContracts([]);
   setCurrentUser(DEFAULT_USERS[0]);
 }
+

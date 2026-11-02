@@ -150,6 +150,8 @@ export function bahtToText(amount: number): string {
   return text;
 }
 
+export const thaiBahtText = bahtToText;
+
 /**
  * Calculate stepped tiered interest rate
  */
