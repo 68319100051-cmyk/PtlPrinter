@@ -1,0 +1,404 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect } from 'react';
+import { TopNav } from './components/TopNav';
+import { Workstation } from './components/Workstation';
+import { NewContractModal } from './components/NewContractModal';
+import { InterestPaymentModal } from './components/InterestPaymentModal';
+import { RedemptionModal } from './components/RedemptionModal';
+import { PrintTicketModal } from './components/PrintTicketModal';
+import { CustomerModal } from './components/CustomerModal';
+import { ReportsView } from './components/ReportsView';
+import { SettingsModal } from './components/SettingsModal';
+import { BackupArchiveModal } from './components/BackupArchiveModal';
+import { SecurityAuthModal } from './components/SecurityAuthModal';
+import { EditContractModal } from './components/EditContractModal';
+import {
+  PawnContract,
+  Customer,
+  ShopSettings,
+  UserAccount,
+  InterestPayment
+} from './types/pawn';
+import {
+  getContracts,
+  saveContracts,
+  getArchivedContracts,
+  getCustomers,
+  saveCustomers,
+  getSettings,
+  saveSettings,
+  getUsers,
+  saveUsers,
+  getCurrentUser,
+  setCurrentUser
+} from './utils/storage';
+
+export default function App() {
+  const [contracts, setContracts] = useState<PawnContract[]>(() => getContracts());
+  const [archivedContracts, setArchivedContracts] = useState<PawnContract[]>(() => getArchivedContracts());
+  const [customers, setCustomers] = useState<Customer[]>(() => getCustomers());
+  const [settings, setSettings] = useState<ShopSettings>(() => getSettings());
+  const [users, setUsers] = useState<UserAccount[]>(() => getUsers());
+  const [currentUser, setCurUser] = useState<UserAccount>(() => getCurrentUser());
+
+  // Navigation tab
+  const [currentTab, setCurrentTab] = useState<'workstation' | 'customers' | 'reports' | 'backup' | 'settings'>('workstation');
+
+  // Modals state
+  const [isNewContractOpen, setIsNewContractOpen] = useState(false);
+  const [isInterestOpen, setIsInterestOpen] = useState(false);
+  const [isRedeemOpen, setIsRedeemOpen] = useState(false);
+  const [isPrintOpen, setIsPrintOpen] = useState(false);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isBackupOpen, setIsBackupOpen] = useState(false);
+  const [isSecurityOpen, setIsSecurityOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+
+  // Active items for modals
+  const [activeContract, setActiveContract] = useState<PawnContract | null>(null);
+  const [activePrintMode, setActivePrintMode] = useState<'slip' | 'half_a4' | 'full_contract' | 'interest_receipt' | 'redeem_receipt'>('half_a4');
+  const [activeReceipt, setActiveReceipt] = useState<InterestPayment | undefined>(undefined);
+
+  // Security gatekeeper state
+  const [securityAction, setSecurityAction] = useState<{
+    actionTitle: string;
+    actionDescription: string;
+    onAuthorized: (authorizerName: string, reason: string) => void;
+  } | null>(null);
+
+  // Authorized edit session state
+  const [editSession, setEditSession] = useState<{
+    contract: PawnContract;
+    authorizerName: string;
+    auditReason: string;
+  } | null>(null);
+
+  // Sync to localStorage
+  const refreshAllData = () => {
+    setContracts(getContracts());
+    setArchivedContracts(getArchivedContracts());
+    setCustomers(getCustomers());
+    setSettings(getSettings());
+    setUsers(getUsers());
+  };
+
+  const handleUserChange = (u: UserAccount) => {
+    setCurUser(u);
+    setCurrentUser(u);
+  };
+
+  // 1. Create New Contract
+  const handleSaveNewContract = (newContract: PawnContract, newCustomer?: Customer) => {
+    if (newCustomer) {
+      const updatedCustomers = [newCustomer, ...customers];
+      setCustomers(updatedCustomers);
+      saveCustomers(updatedCustomers);
+    }
+
+    const updatedContracts = [newContract, ...contracts];
+    setContracts(updatedContracts);
+    saveContracts(updatedContracts);
+
+    // Prompt to print immediately
+    setActiveContract(newContract);
+    setActivePrintMode('half_a4');
+    setIsPrintOpen(true);
+  };
+
+  // 2. Interest Payment
+  const handlePaymentSuccess = (updatedContract: PawnContract, newPayment: InterestPayment) => {
+    const updated = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
+    setContracts(updated);
+    saveContracts(updated);
+
+    // Offer to print receipt
+    setActiveContract(updatedContract);
+    setActiveReceipt(newPayment);
+    setActivePrintMode('interest_receipt');
+    setIsPrintOpen(true);
+  };
+
+  // 3. Redeem Contract
+  const handleRedeemSuccess = (updatedContract: PawnContract) => {
+    const updated = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
+    setContracts(updated);
+    saveContracts(updated);
+
+    // Offer to print release receipt
+    setActiveContract(updatedContract);
+    setActivePrintMode('redeem_receipt');
+    setIsPrintOpen(true);
+  };
+
+  // 4. Request edit locked contract (requires manager/admin authorization)
+  const handleRequestEditContract = (targetContract: PawnContract) => {
+    setSecurityAction({
+      actionTitle: `ขอแก้ไขสาระสัญญา ${targetContract.contractNumber}`,
+      actionDescription: `รายการทรัพย์สิน: ${targetContract.item.name} (เงินต้น ${targetContract.loanAmount.toLocaleString()} บาท)`,
+      onAuthorized: (authorizerName, reason) => {
+        setEditSession({
+          contract: targetContract,
+          authorizerName,
+          auditReason: reason,
+        });
+        setIsEditOpen(true);
+      },
+    });
+    setIsSecurityOpen(true);
+  };
+
+  // 5. Forfeit item (ยึดหลุดจำนำ)
+  const handleForfeitContract = (targetContract: PawnContract) => {
+    setSecurityAction({
+      actionTitle: `อนุมัติยึดทรัพย์สินหลุดจำนำ ${targetContract.contractNumber}`,
+      actionDescription: `ทรัพย์สิน ${targetContract.item.name} สัญญาเกินกำหนดและพ้นระยะผ่อนผันแล้ว`,
+      onAuthorized: (authorizerName, reason) => {
+        const updatedContract: PawnContract = {
+          ...targetContract,
+          status: 'forfeited',
+          forfeitedDate: new Date().toISOString(),
+          amendmentLogs: [
+            ...targetContract.amendmentLogs,
+            {
+              id: `log-${Date.now()}`,
+              timestamp: new Date().toISOString(),
+              authorizedBy: authorizerName,
+              reason,
+              changesSummary: `อนุมัติยึดทรัพย์สินหลุดจำนำโดย ${authorizerName}`,
+            },
+          ],
+        };
+        const updated = contracts.map(c => c.id === targetContract.id ? updatedContract : c);
+        setContracts(updated);
+        saveContracts(updated);
+      },
+    });
+    setIsSecurityOpen(true);
+  };
+
+  // 6. Save edited contract
+  const handleSaveEditedContract = (updatedContract: PawnContract) => {
+    const updated = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
+    setContracts(updated);
+    saveContracts(updated);
+    setActiveContract(updatedContract);
+  };
+
+  // 7. Save Settings
+  const handleSaveSettings = (newSettings: ShopSettings) => {
+    setSettings(newSettings);
+    saveSettings(newSettings);
+  };
+
+  const handleSaveUsers = (newUsers: UserAccount[]) => {
+    setUsers(newUsers);
+    saveUsers(newUsers);
+  };
+
+  // 8. Save Customer from CustomerModal
+  const handleSaveCustomer = (newOrUpdatedCust: Customer) => {
+    const exists = customers.some(c => c.id === newOrUpdatedCust.id);
+    let updated: Customer[];
+    if (exists) {
+      updated = customers.map(c => c.id === newOrUpdatedCust.id ? newOrUpdatedCust : c);
+    } else {
+      updated = [newOrUpdatedCust, ...customers];
+    }
+    setCustomers(updated);
+    saveCustomers(updated);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
+      {/* Top Bar Navigation */}
+      <TopNav
+        currentTab={currentTab}
+        onSelectTab={(tab) => {
+          if (tab === 'customers') {
+            setIsCustomerModalOpen(true);
+          } else if (tab === 'backup') {
+            setIsBackupOpen(true);
+          } else if (tab === 'settings') {
+            setIsSettingsOpen(true);
+          } else {
+            setCurrentTab(tab);
+          }
+        }}
+        onOpenNewContract={() => setIsNewContractOpen(true)}
+        currentUser={currentUser}
+        allUsers={users}
+        onChangeUser={handleUserChange}
+        shopName={settings.shopName}
+        logoUrl={settings.logoUrl}
+      />
+
+      {/* Main Content Area */}
+      <main className="flex-1 p-3 sm:p-6 max-w-7xl mx-auto w-full">
+        {currentTab === 'workstation' && (
+          <Workstation
+            contracts={contracts}
+            settings={settings}
+            currentUser={currentUser}
+            onOpenNewContract={() => setIsNewContractOpen(true)}
+            onOpenInterestModal={(contract) => {
+              setActiveContract(contract);
+              setIsInterestOpen(true);
+            }}
+            onOpenRedeemModal={(contract) => {
+              setActiveContract(contract);
+              setIsRedeemOpen(true);
+            }}
+            onOpenPrintModal={(contract, mode = 'half_a4') => {
+              setActiveContract(contract);
+              setActivePrintMode(mode);
+              setActiveReceipt(undefined);
+              setIsPrintOpen(true);
+            }}
+            onRequestEditContract={handleRequestEditContract}
+            onForfeitContract={handleForfeitContract}
+          />
+        )}
+
+        {currentTab === 'reports' && (
+          <ReportsView
+            contracts={contracts}
+            archivedContracts={archivedContracts}
+            settings={settings}
+          />
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="no-print py-4 px-6 border-t border-slate-200 bg-white text-xs text-slate-500 text-center flex flex-col sm:flex-row justify-between items-center gap-2">
+        <div>
+          <strong>{settings.shopName}</strong> · ระบบรับจำนำและบันทึกขายฝากอัจฉริยะ (Anchan Pawn Pro)
+        </div>
+        <div className="flex items-center gap-3">
+          <span>โทร. {settings.phone}</span>
+          <span>·</span>
+          <span>สาขา: {settings.branchName}</span>
+        </div>
+      </footer>
+
+      {/* MODALS */}
+      {/* 1. New Contract Modal */}
+      <NewContractModal
+        isOpen={isNewContractOpen}
+        onClose={() => setIsNewContractOpen(false)}
+        onSave={handleSaveNewContract}
+        customers={customers}
+        existingContracts={contracts}
+        settings={settings}
+        currentUser={currentUser}
+      />
+
+      {/* 2. Interest Payment Modal */}
+      {activeContract && (
+        <InterestPaymentModal
+          isOpen={isInterestOpen}
+          onClose={() => setIsInterestOpen(false)}
+          contract={activeContract}
+          settings={settings}
+          currentUser={currentUser}
+          onPaymentSuccess={handlePaymentSuccess}
+        />
+      )}
+
+      {/* 3. Redemption Modal */}
+      {activeContract && (
+        <RedemptionModal
+          isOpen={isRedeemOpen}
+          onClose={() => setIsRedeemOpen(false)}
+          contract={activeContract}
+          settings={settings}
+          currentUser={currentUser}
+          onRedeemSuccess={handleRedeemSuccess}
+        />
+      )}
+
+      {/* 4. Print Ticket & Receipt Modal */}
+      {activeContract && (
+        <PrintTicketModal
+          isOpen={isPrintOpen}
+          onClose={() => setIsPrintOpen(false)}
+          contract={activeContract}
+          settings={settings}
+          defaultMode={activePrintMode}
+          activeReceipt={activeReceipt}
+        />
+      )}
+
+      {/* 5. AG Customer Intelligence Modal */}
+      <CustomerModal
+        isOpen={isCustomerModalOpen}
+        onClose={() => setIsCustomerModalOpen(false)}
+        customers={customers}
+        contracts={contracts}
+        onSaveCustomer={handleSaveCustomer}
+        onSelectContract={(targetContract, action) => {
+          setActiveContract(targetContract);
+          if (action === 'interest') setIsInterestOpen(true);
+          else if (action === 'redeem') setIsRedeemOpen(true);
+          else if (action === 'print') {
+            setActivePrintMode('half_a4');
+            setIsPrintOpen(true);
+          }
+        }}
+      />
+
+      {/* 6. System Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        settings={settings}
+        users={users}
+        onSaveSettings={handleSaveSettings}
+        onSaveUsers={handleSaveUsers}
+      />
+
+      {/* 7. Backup & Archiving Modal */}
+      <BackupArchiveModal
+        isOpen={isBackupOpen}
+        onClose={() => setIsBackupOpen(false)}
+        contracts={contracts}
+        onDataChanged={refreshAllData}
+      />
+
+      {/* 8. Security Passcode Modal */}
+      {securityAction && (
+        <SecurityAuthModal
+          isOpen={isSecurityOpen}
+          onClose={() => {
+            setIsSecurityOpen(false);
+            setSecurityAction(null);
+          }}
+          onAuthorized={securityAction.onAuthorized}
+          actionTitle={securityAction.actionTitle}
+          actionDescription={securityAction.actionDescription}
+          users={users}
+          requiredRole="manager"
+        />
+      )}
+
+      {/* 9. Authorized Edit Contract Modal */}
+      {editSession && (
+        <EditContractModal
+          isOpen={isEditOpen}
+          onClose={() => {
+            setIsEditOpen(false);
+            setEditSession(null);
+          }}
+          contract={editSession.contract}
+          authorizerName={editSession.authorizerName}
+          auditReason={editSession.auditReason}
+          onSave={handleSaveEditedContract}
+        />
+      )}
+    </div>
+  );
+}
