@@ -31,10 +31,10 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
   const monthlyInterest = (contract.loanAmount * contract.monthlyInterestRate) / 100;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto">
-      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-auto max-h-[94vh]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-0 sm:p-4 overflow-y-auto">
+      <div className="w-full h-full sm:h-auto sm:max-h-[94vh] max-w-4xl bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-slate-200 overflow-hidden flex flex-col my-auto">
         {/* Header - Controls (Hidden during print) */}
-        <div className="no-print flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-50 shrink-0">
+        <div className="no-print flex items-center justify-between px-3 sm:px-6 py-2.5 sm:py-4 border-b border-slate-200 bg-slate-50 shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-indigo-600 text-white">
               <Printer className="w-5 h-5" />

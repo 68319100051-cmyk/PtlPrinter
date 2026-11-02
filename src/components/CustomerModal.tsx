@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Search, User, Phone, MapPin, Plus, FileText, Check, ShieldAlert, Award, Calendar } from 'lucide-react';
+import { X, Search, User, Phone, MapPin, Plus, FileText, Check, ShieldAlert, Award, Calendar, ChevronLeft } from 'lucide-react';
 import { Customer, PawnContract } from '../types/pawn';
 import { formatCurrency, formatThaiDate, formatCitizenId, formatPhone } from '../utils/thaiFormat';
 
@@ -23,6 +23,7 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(customers[0]?.id || '');
   const [isEditing, setIsEditing] = useState(false);
+  const [mobileCustomerView, setMobileCustomerView] = useState<'list' | 'profile'>('list');
 
   // Form states
   const [prefix, setPrefix] = useState('นาย');
@@ -115,23 +116,23 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-2 sm:p-4 overflow-y-auto no-print">
-      <div className="w-full max-w-6xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col my-auto max-h-[95vh] animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-0 sm:p-4 overflow-y-auto no-print">
+      <div className="w-full h-full sm:h-auto sm:max-h-[95vh] max-w-6xl bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-slate-200 overflow-hidden flex flex-col my-auto animate-in fade-in zoom-in-95 duration-150">
         {/* Top Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-slate-900 text-white shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-indigo-600 text-white shadow-xs">
-              <User className="w-5 h-5" />
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-200 bg-slate-900 text-white shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="p-2 sm:p-2.5 rounded-xl bg-indigo-600 text-white shadow-xs shrink-0">
+              <User className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
             <div>
-              <h2 className="font-semibold text-lg">ข้อมูลลูกค้าอัจฉริยะ (AG Customer Intelligence)</h2>
-              <p className="text-xs text-slate-400">ค้นหาบัตรหาย ลืมบัตร ตรวจสอบประวัติการขายฝากย้อนหลังได้ทันที</p>
+              <h2 className="font-semibold text-sm sm:text-lg">ข้อมูลลูกค้าอัจฉริยะ (AG Customer)</h2>
+              <p className="text-[11px] sm:text-xs text-slate-400">ค้นหาบัตรหาย ลืมบัตร ตรวจสอบประวัติการขายฝากย้อนหลังได้ทันที</p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1.5 sm:p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -140,7 +141,9 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
         {/* Workspace Body: Split Left (Customer Directory) and Right (Customer Profile & History) */}
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
           {/* Left Panel: Customer Directory List */}
-          <div className="w-full md:w-80 border-r border-slate-200 bg-slate-50 flex flex-col shrink-0">
+          <div className={`w-full md:w-80 border-r border-slate-200 bg-slate-50 flex-col shrink-0 ${
+            mobileCustomerView === 'list' ? 'flex' : 'hidden md:flex'
+          }`}>
             <div className="p-3 border-b border-slate-200 space-y-2">
               <div className="relative">
                 <input
@@ -148,13 +151,16 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="ค้นหา: ชื่อ, บัตร ปชช., เบอร์โทร..."
-                  className="w-full px-3 py-2 pl-9 rounded-xl border border-slate-300 bg-white text-xs focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 pl-9 rounded-xl border border-slate-300 bg-white text-base sm:text-xs focus:ring-2 focus:ring-indigo-500"
                 />
                 <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
               </div>
               <button
                 type="button"
-                onClick={startAddNewCustomer}
+                onClick={() => {
+                  startAddNewCustomer();
+                  setMobileCustomerView('profile');
+                }}
                 className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1.5 shadow-xs"
               >
                 <Plus className="w-4 h-4" />
@@ -168,7 +174,11 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                 return (
                   <div
                     key={c.id}
-                    onClick={() => { setSelectedCustomerId(c.id); setIsEditing(false); }}
+                    onClick={() => {
+                      setSelectedCustomerId(c.id);
+                      setIsEditing(false);
+                      setMobileCustomerView('profile');
+                    }}
                     className={`p-3 rounded-xl border cursor-pointer transition-all text-xs ${
                       isSelected
                         ? 'bg-white border-indigo-500 shadow-xs ring-1 ring-indigo-500'
@@ -193,7 +203,20 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
           </div>
 
           {/* Right Panel: Detail / Edit View */}
-          <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-white">
+          <div className={`flex-1 overflow-y-auto p-4 sm:p-6 bg-white flex-col ${
+            mobileCustomerView === 'profile' ? 'flex' : 'hidden md:flex'
+          }`}>
+            {/* Mobile Back Button to Customer List */}
+            <div className="md:hidden flex items-center justify-between pb-3 mb-3 border-b border-slate-200 shrink-0">
+              <button
+                type="button"
+                onClick={() => setMobileCustomerView('list')}
+                className="flex items-center gap-1 text-xs text-indigo-600 font-medium hover:text-indigo-800"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                <span>กลับไปค้นหารายชื่อลูกค้า</span>
+              </button>
+            </div>
             {isEditing ? (
               <form onSubmit={handleSave} className="space-y-4 max-w-2xl">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-200">

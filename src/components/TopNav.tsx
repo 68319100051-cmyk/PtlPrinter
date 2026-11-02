@@ -28,90 +28,106 @@ export const TopNav: React.FC<TopNavProps> = ({
   const todayStr = formatThaiDate(new Date().toISOString());
 
   return (
-    <header className="no-print bg-slate-900 border-b border-slate-800 text-white shrink-0 sticky top-0 z-40">
-      <div className="flex items-center justify-between gap-8 px-4 sm:px-6 py-3">
-        {/* Zone 1: Brand Wordmark (Single text element) */}
-        <div className="flex items-center gap-2.5 whitespace-nowrap shrink-0">
+    <header className="no-print bg-slate-900 border-b border-slate-800 text-white shrink-0 sticky top-0 z-40 w-full max-w-full">
+      <div className="flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-4 py-2 w-full max-w-full min-w-0">
+        {/* Zone 1: Brand Wordmark (Responsive truncate) */}
+        <div className="flex items-center gap-2 min-w-0 shrink">
           {logoUrl ? (
-            <img src={logoUrl} alt="Logo" className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 border border-slate-700 shadow-xs" />
+            <img
+              src={logoUrl}
+              alt="Logo"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-contain bg-white p-0.5 border border-slate-700 shadow-xs shrink-0"
+            />
           ) : (
-            <div className="w-8 h-8 rounded-xl bg-linear-to-tr from-amber-500 to-indigo-500 flex items-center justify-center font-bold text-white shadow-xs">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-linear-to-tr from-amber-500 to-indigo-500 flex items-center justify-center font-bold text-white shadow-xs shrink-0 text-sm">
               พ
             </div>
           )}
           <a
             href="#"
             onClick={(e) => { e.preventDefault(); onSelectTab('workstation'); }}
-            className="text-base font-bold tracking-tight text-white hover:text-amber-400 transition-colors whitespace-nowrap"
+            className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-white hover:text-amber-400 transition-colors truncate max-w-[130px] sm:max-w-[200px] md:max-w-[260px] lg:max-w-xs xl:max-w-none"
+            title={shopName || 'พัทลุงปริ้นเตอร์ & รับจำนำขายฝาก'}
           >
             {shopName || 'พัทลุงปริ้นเตอร์ & รับจำนำขายฝาก'}
           </a>
         </div>
 
-        {/* Zone 2: Clean single-line nav links */}
-        <nav className="hidden lg:flex items-center gap-6 text-xs font-medium text-slate-300">
+        {/* Zone 2: Segmented Pill Nav links on Desktop */}
+        <nav className="hidden xl:flex items-center gap-1 bg-slate-800/80 p-1 rounded-xl text-xs font-medium text-slate-300 shrink-0 border border-slate-700/60">
           <button
             onClick={() => onSelectTab('workstation')}
-            className={`transition-colors whitespace-nowrap shrink-0 pb-0.5 ${
-              currentTab === 'workstation' ? 'text-amber-400 font-bold border-b-2 border-amber-400' : 'hover:text-white'
+            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap ${
+              currentTab === 'workstation'
+                ? 'bg-amber-400 text-slate-900 font-bold shadow-xs'
+                : 'hover:text-white hover:bg-slate-700/50'
             }`}
           >
-            หน้าจอขายฝาก (Workstation)
+            หน้าจอขายฝาก
           </button>
           <button
             onClick={() => onSelectTab('customers')}
-            className={`transition-colors whitespace-nowrap shrink-0 pb-0.5 ${
-              currentTab === 'customers' ? 'text-amber-400 font-bold border-b-2 border-amber-400' : 'hover:text-white'
+            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap ${
+              currentTab === 'customers'
+                ? 'bg-amber-400 text-slate-900 font-bold shadow-xs'
+                : 'hover:text-white hover:bg-slate-700/50'
             }`}
           >
-            ข้อมูลลูกค้าอัจฉริยะ (AG Customer)
+            ลูกค้า AG
           </button>
           <button
             onClick={() => onSelectTab('reports')}
-            className={`transition-colors whitespace-nowrap shrink-0 pb-0.5 ${
-              currentTab === 'reports' ? 'text-amber-400 font-bold border-b-2 border-amber-400' : 'hover:text-white'
+            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap ${
+              currentTab === 'reports'
+                ? 'bg-amber-400 text-slate-900 font-bold shadow-xs'
+                : 'hover:text-white hover:bg-slate-700/50'
             }`}
           >
-            สรุปรายรับ-รายจ่าย (Reports)
+            สรุปบัญชี
           </button>
           <button
             onClick={() => onSelectTab('backup')}
-            className={`transition-colors whitespace-nowrap shrink-0 pb-0.5 ${
-              currentTab === 'backup' ? 'text-amber-400 font-bold border-b-2 border-amber-400' : 'hover:text-white'
+            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap ${
+              currentTab === 'backup'
+                ? 'bg-amber-400 text-slate-900 font-bold shadow-xs'
+                : 'hover:text-white hover:bg-slate-700/50'
             }`}
           >
-            สำรอง & คลังข้อมูล
+            สำรองข้อมูล
           </button>
           <button
             onClick={() => onSelectTab('settings')}
-            className={`transition-colors whitespace-nowrap shrink-0 pb-0.5 ${
-              currentTab === 'settings' ? 'text-amber-400 font-bold border-b-2 border-amber-400' : 'hover:text-white'
+            className={`px-3 py-1 rounded-lg transition-colors whitespace-nowrap ${
+              currentTab === 'settings'
+                ? 'bg-amber-400 text-slate-900 font-bold shadow-xs'
+                : 'hover:text-white hover:bg-slate-700/50'
             }`}
           >
             ตั้งค่าระบบ
           </button>
         </nav>
 
-        {/* Zone 3: Primary Action & Quick User Switcher */}
-        <div className="flex items-center gap-3 shrink-0">
+        {/* Zone 3: Primary Action & User Switcher */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0 min-w-0">
           {/* Firebase Cloud Sync Status */}
-          <div className="hidden md:flex items-center gap-1.5 text-[11px] px-2.5 py-1.5 rounded-lg border font-mono bg-slate-800/80 border-slate-700 text-slate-300">
+          <div
+            title={
+              syncStatus === 'connected' ? 'เชื่อมต่อ Firebase คลาวด์เรียบร้อย' :
+              syncStatus === 'syncing' ? 'กำลังซิงค์ข้อมูลกับคลาวด์' :
+              syncStatus === 'connecting' ? 'กำลังเชื่อมต่อคลาวด์' : 'ออฟไลน์ (แคชในเครื่อง)'
+            }
+            className="flex items-center gap-1 text-[11px] px-2 py-1.5 rounded-lg border font-mono bg-slate-800/80 border-slate-700 text-slate-300"
+          >
             <Cloud className={`w-3.5 h-3.5 ${
               syncStatus === 'connected' ? 'text-emerald-400' :
               syncStatus === 'syncing' ? 'text-amber-400 animate-pulse' :
               syncStatus === 'connecting' ? 'text-blue-400' : 'text-slate-400'
             }`} />
-            <span className="text-[10px]">
-              {syncStatus === 'connected' ? 'Firebase คลาวด์' :
-               syncStatus === 'syncing' ? 'กำลังซิงค์...' :
-               syncStatus === 'connecting' ? 'กำลังเชื่อมต่อ...' : 'แคชในเครื่อง'}
+            <span className="hidden md:inline text-[10px]">
+              {syncStatus === 'connected' ? 'คลาวด์' :
+               syncStatus === 'syncing' ? 'ซิงค์...' :
+               syncStatus === 'connecting' ? 'เชื่อมต่อ...' : 'แคช'}
             </span>
-          </div>
-
-          {/* Date Indicator */}
-          <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-400 font-mono bg-slate-800/80 px-2.5 py-1.5 rounded-lg border border-slate-700">
-            <Clock className="w-3.5 h-3.5 text-amber-400" />
-            <span>{todayStr}</span>
           </div>
 
           {/* User Role Switcher Dropdown */}
@@ -122,7 +138,7 @@ export const TopNav: React.FC<TopNavProps> = ({
                 const u = allUsers.find(user => user.id === e.target.value);
                 if (u) onChangeUser(u);
               }}
-              className="bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs rounded-xl px-2.5 py-1.5 pr-6 appearance-none focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+              className="bg-slate-800 hover:bg-slate-750 text-slate-200 border border-slate-700 text-xs rounded-xl px-2 py-1.5 pr-6 max-w-[85px] sm:max-w-[125px] md:max-w-[145px] truncate appearance-none focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
             >
               {allUsers.map(u => (
                 <option key={u.id} value={u.id}>
@@ -130,55 +146,76 @@ export const TopNav: React.FC<TopNavProps> = ({
                 </option>
               ))}
             </select>
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-400 absolute right-2 top-2.5 pointer-events-none" />
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-400 absolute right-1.5 top-2.5 pointer-events-none" />
           </div>
 
           {/* Primary CTA */}
           <button
             onClick={onOpenNewContract}
-            className="px-4 py-2 text-xs font-semibold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all shadow-xs flex items-center gap-1.5 whitespace-nowrap shrink-0 active:scale-95"
+            className="px-2.5 sm:px-3.5 py-1.5 text-xs font-semibold text-slate-900 bg-amber-400 hover:bg-amber-300 rounded-xl transition-all shadow-xs flex items-center gap-1 whitespace-nowrap shrink-0 active:scale-95"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>เปิดสัญญาใหม่</span>
+            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span className="hidden sm:inline">เปิดสัญญาใหม่</span>
+            <span className="sm:hidden">สัญญาใหม่</span>
           </button>
         </div>
       </div>
 
-      {/* Mobile Nav strip */}
-      <div className="lg:hidden flex items-center gap-3 px-4 py-2 border-t border-slate-800 bg-slate-950/60 overflow-x-auto text-xs">
+      {/* Responsive Nav strip on screens smaller than XL */}
+      <div className="xl:hidden flex items-center gap-1 px-3 py-1 border-t border-slate-800 bg-slate-950/90 overflow-x-auto text-xs scrollbar-none shrink-0 w-full">
         <button
           onClick={() => onSelectTab('workstation')}
-          className={`whitespace-nowrap ${currentTab === 'workstation' ? 'text-amber-400 font-bold' : 'text-slate-400'}`}
+          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors ${
+            currentTab === 'workstation'
+              ? 'bg-amber-400 text-slate-900 font-bold'
+              : 'text-slate-400 hover:text-white'
+          }`}
         >
           หน้าจอขายฝาก
         </button>
-        <span className="text-slate-700">·</span>
+        <span className="text-slate-700 text-[10px]">·</span>
         <button
           onClick={() => onSelectTab('customers')}
-          className={`whitespace-nowrap ${currentTab === 'customers' ? 'text-amber-400 font-bold' : 'text-slate-400'}`}
+          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors ${
+            currentTab === 'customers'
+              ? 'bg-amber-400 text-slate-900 font-bold'
+              : 'text-slate-400 hover:text-white'
+          }`}
         >
-          ลูกค้าอัจฉริยะ
+          ลูกค้า AG
         </button>
-        <span className="text-slate-700">·</span>
+        <span className="text-slate-700 text-[10px]">·</span>
         <button
           onClick={() => onSelectTab('reports')}
-          className={`whitespace-nowrap ${currentTab === 'reports' ? 'text-amber-400 font-bold' : 'text-slate-400'}`}
+          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors ${
+            currentTab === 'reports'
+              ? 'bg-amber-400 text-slate-900 font-bold'
+              : 'text-slate-400 hover:text-white'
+          }`}
         >
           สรุปบัญชี
         </button>
-        <span className="text-slate-700">·</span>
+        <span className="text-slate-700 text-[10px]">·</span>
         <button
           onClick={() => onSelectTab('backup')}
-          className={`whitespace-nowrap ${currentTab === 'backup' ? 'text-amber-400 font-bold' : 'text-slate-400'}`}
+          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors ${
+            currentTab === 'backup'
+              ? 'bg-amber-400 text-slate-900 font-bold'
+              : 'text-slate-400 hover:text-white'
+          }`}
         >
           สำรองข้อมูล
         </button>
-        <span className="text-slate-700">·</span>
+        <span className="text-slate-700 text-[10px]">·</span>
         <button
           onClick={() => onSelectTab('settings')}
-          className={`whitespace-nowrap ${currentTab === 'settings' ? 'text-amber-400 font-bold' : 'text-slate-400'}`}
+          className={`px-2.5 py-0.5 rounded text-[11px] whitespace-nowrap transition-colors ${
+            currentTab === 'settings'
+              ? 'bg-amber-400 text-slate-900 font-bold'
+              : 'text-slate-400 hover:text-white'
+          }`}
         >
-          ตั้งค่า
+          ตั้งค่าระบบ
         </button>
       </div>
     </header>

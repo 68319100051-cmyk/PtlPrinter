@@ -255,7 +255,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans">
+    <div className="h-screen max-h-screen w-full max-w-full flex flex-col font-sans bg-slate-100 overflow-hidden">
       {/* Top Bar Navigation */}
       <TopNav
         currentTab={currentTab}
@@ -280,7 +280,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 p-3 sm:p-6 max-w-7xl mx-auto w-full">
+      <main className="flex-1 min-h-0 p-2 sm:p-3 max-w-[1720px] mx-auto w-full flex flex-col overflow-hidden">
         {currentTab === 'workstation' && (
           <Workstation
             contracts={contracts}
@@ -307,23 +307,25 @@ export default function App() {
         )}
 
         {currentTab === 'reports' && (
-          <ReportsView
-            contracts={contracts}
-            archivedContracts={archivedContracts}
-            settings={settings}
-          />
+          <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+            <ReportsView
+              contracts={contracts}
+              archivedContracts={archivedContracts}
+              settings={settings}
+            />
+          </div>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="no-print py-4 px-6 border-t border-slate-200 bg-white text-xs text-slate-500 text-center flex flex-col sm:flex-row justify-between items-center gap-2">
-        <div>
-          <strong>{settings.shopName}</strong> · ระบบรับจำนำและบันทึกขายฝากอัจฉริยะ (Anchan Pawn Pro)
+      {/* Slim Compact Bottom Status Bar */}
+      <footer className="no-print shrink-0 py-1.5 px-4 sm:px-6 border-t border-slate-200 bg-white text-[11px] text-slate-500 flex justify-between items-center gap-2">
+        <div className="truncate">
+          <strong className="text-slate-700">{settings.shopName}</strong> · สาขา: {settings.branchName}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 shrink-0 font-mono text-[10px]">
           <span>โทร. {settings.phone}</span>
           <span>·</span>
-          <span>สาขา: {settings.branchName}</span>
+          <span className="text-emerald-600 font-medium">● ระบบพร้อมใช้งาน (Ready)</span>
         </div>
       </footer>
 

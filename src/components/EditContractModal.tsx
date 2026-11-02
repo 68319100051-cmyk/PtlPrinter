@@ -59,8 +59,8 @@ export const EditContractModal: React.FC<EditContractModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4 overflow-y-auto no-print">
-      <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-0 sm:p-4 overflow-y-auto no-print">
+      <div className="w-full h-full sm:h-auto sm:max-h-[92vh] max-w-lg bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-slate-200 overflow-y-auto flex flex-col animate-in fade-in zoom-in-95 duration-150">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-amber-600 text-white">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-amber-700 text-white shadow-xs">

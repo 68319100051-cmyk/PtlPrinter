@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   ChevronRight,
+  ChevronLeft,
   Eye,
   Plus,
   Coins,
@@ -54,6 +55,7 @@ export const Workstation: React.FC<WorkstationProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedContractId, setSelectedContractId] = useState<string>(contracts[0]?.id || '');
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
+  const [mobileActiveView, setMobileActiveView] = useState<'list' | 'detail'>('list');
 
   // Compute live statistics for summary strip
   const activeContracts = contracts.filter(c => c.status === 'active' || c.status === 'due_soon' || c.status === 'overdue');
@@ -124,19 +126,19 @@ export const Workstation: React.FC<WorkstationProps> = ({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex-1 min-h-0 flex flex-col gap-2.5 overflow-hidden">
       {/* 1. Real-time Status Metric Ribbons */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 shrink-0">
         {/* Metric 1 */}
         <div
           onClick={() => setSelectedStatus('active')}
-          className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs cursor-pointer hover:border-indigo-400 transition-colors"
+          className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs cursor-pointer hover:border-indigo-400 transition-colors"
         >
-          <div className="flex items-center justify-between text-xs text-slate-500">
+          <div className="flex items-center justify-between text-[11px] text-slate-500">
             <span>ยอดเงินต้นคงค้างทั้งหมด</span>
-            <span className="font-mono text-[11px] bg-slate-100 px-1.5 py-0.5 rounded">{activeContracts.length} ตั๋ว</span>
+            <span className="font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">{activeContracts.length} ตั๋ว</span>
           </div>
-          <div className="text-xl font-bold font-mono text-slate-900 mt-1">
+          <div className="text-lg font-bold font-mono text-slate-900 mt-0.5">
             {formatCurrency(totalActiveLoanAmount)}
           </div>
         </div>
@@ -144,13 +146,13 @@ export const Workstation: React.FC<WorkstationProps> = ({
         {/* Metric 2 */}
         <div
           onClick={() => setSelectedStatus('due_soon')}
-          className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs cursor-pointer hover:border-amber-400 transition-colors"
+          className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs cursor-pointer hover:border-amber-400 transition-colors"
         >
-          <div className="flex items-center justify-between text-xs text-amber-700">
+          <div className="flex items-center justify-between text-[11px] text-amber-700">
             <span>ใกล้ครบกำหนด (ใน 7 วัน)</span>
             <Clock className="w-3.5 h-3.5 text-amber-600" />
           </div>
-          <div className="text-xl font-bold font-mono text-amber-600 mt-1">
+          <div className="text-lg font-bold font-mono text-amber-600 mt-0.5">
             {dueSoonCount} <span className="text-xs font-normal text-slate-500">สัญญา</span>
           </div>
         </div>
@@ -158,13 +160,13 @@ export const Workstation: React.FC<WorkstationProps> = ({
         {/* Metric 3 */}
         <div
           onClick={() => setSelectedStatus('overdue')}
-          className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs cursor-pointer hover:border-rose-400 transition-colors"
+          className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs cursor-pointer hover:border-rose-400 transition-colors"
         >
-          <div className="flex items-center justify-between text-xs text-rose-700">
+          <div className="flex items-center justify-between text-[11px] text-rose-700">
             <span>เกินกำหนด / รอหลุดจำนำ</span>
             <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
           </div>
-          <div className="text-xl font-bold font-mono text-rose-600 mt-1">
+          <div className="text-lg font-bold font-mono text-rose-600 mt-0.5">
             {overdueCount} <span className="text-xs font-normal text-slate-500">สัญญา</span>
           </div>
         </div>
@@ -172,34 +174,34 @@ export const Workstation: React.FC<WorkstationProps> = ({
         {/* Metric 4 */}
         <div
           onClick={() => setSelectedStatus('redeemed')}
-          className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs cursor-pointer hover:border-emerald-400 transition-colors"
+          className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs cursor-pointer hover:border-emerald-400 transition-colors"
         >
-          <div className="flex items-center justify-between text-xs text-emerald-700">
+          <div className="flex items-center justify-between text-[11px] text-emerald-700">
             <span>ไถ่ถอนสำเร็จแล้ว</span>
             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
           </div>
-          <div className="text-xl font-bold font-mono text-emerald-600 mt-1">
+          <div className="text-lg font-bold font-mono text-emerald-600 mt-0.5">
             {contracts.filter(c => c.status === 'redeemed').length} <span className="text-xs font-normal text-slate-500">สัญญา</span>
           </div>
         </div>
       </div>
 
       {/* 2. Fast Universal Search & Filter Bar */}
-      <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+      <div className="bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-2.5 text-xs shrink-0">
         {/* Universal Search Input */}
         <div className="relative w-full md:w-96">
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ค้นหาด่วน: เลขสัญญา, บัตร ปชช., ชื่อลูกค้า, เบอร์โทร, ทะเบียน, IMEI..."
-            className="w-full px-3.5 py-2 pl-9 rounded-xl border border-slate-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+            placeholder="ค้นหา: เลขสัญญา, บัตร ปชช., ชื่อลูกค้า, เบอร์โทร..."
+            className="w-full px-3 py-1.5 pl-8 rounded-lg border border-slate-300 bg-white text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
           />
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 text-xs"
+              className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs"
             >
               ล้าง
             </button>
@@ -207,43 +209,43 @@ export const Workstation: React.FC<WorkstationProps> = ({
         </div>
 
         {/* Status Filters */}
-        <div className="flex items-center gap-1 overflow-x-auto w-full md:w-auto p-1 bg-slate-100 rounded-xl">
+        <div className="flex items-center gap-1 overflow-x-auto w-full md:w-auto p-0.5 bg-slate-100 rounded-lg scrollbar-none">
           <button
             onClick={() => setSelectedStatus('all')}
-            className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-colors ${
-              selectedStatus === 'all' ? 'bg-white text-slate-900 shadow-xs font-semibold' : 'text-slate-600 hover:text-slate-900'
+            className={`px-2.5 py-1 rounded font-medium whitespace-nowrap text-xs transition-colors ${
+              selectedStatus === 'all' ? 'bg-white text-slate-900 shadow-2xs font-semibold' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             ทั้งหมด ({contracts.length})
           </button>
           <button
             onClick={() => setSelectedStatus('active')}
-            className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-colors ${
-              selectedStatus === 'active' ? 'bg-white text-indigo-700 shadow-xs font-semibold' : 'text-slate-600 hover:text-slate-900'
+            className={`px-2.5 py-1 rounded font-medium whitespace-nowrap text-xs transition-colors ${
+              selectedStatus === 'active' ? 'bg-white text-indigo-700 shadow-2xs font-semibold' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             เปิดอยู่ ({activeContracts.length})
           </button>
           <button
             onClick={() => setSelectedStatus('due_soon')}
-            className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-colors ${
-              selectedStatus === 'due_soon' ? 'bg-white text-amber-700 shadow-xs font-semibold' : 'text-slate-600 hover:text-slate-900'
+            className={`px-2.5 py-1 rounded font-medium whitespace-nowrap text-xs transition-colors ${
+              selectedStatus === 'due_soon' ? 'bg-white text-amber-700 shadow-2xs font-semibold' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             ใกล้ครบ ({dueSoonCount})
           </button>
           <button
             onClick={() => setSelectedStatus('overdue')}
-            className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-colors ${
-              selectedStatus === 'overdue' ? 'bg-white text-rose-700 shadow-xs font-semibold' : 'text-slate-600 hover:text-slate-900'
+            className={`px-2.5 py-1 rounded font-medium whitespace-nowrap text-xs transition-colors ${
+              selectedStatus === 'overdue' ? 'bg-white text-rose-700 shadow-2xs font-semibold' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             เกินกำหนด ({overdueCount})
           </button>
           <button
             onClick={() => setSelectedStatus('redeemed')}
-            className={`px-3 py-1 rounded-lg font-medium whitespace-nowrap transition-colors ${
-              selectedStatus === 'redeemed' ? 'bg-white text-emerald-700 shadow-xs font-semibold' : 'text-slate-600 hover:text-slate-900'
+            className={`px-2.5 py-1 rounded font-medium whitespace-nowrap text-xs transition-colors ${
+              selectedStatus === 'redeemed' ? 'bg-white text-emerald-700 shadow-2xs font-semibold' : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             ไถ่ถอนแล้ว
@@ -251,12 +253,12 @@ export const Workstation: React.FC<WorkstationProps> = ({
         </div>
 
         {/* Category selector */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="text-slate-400">หมวด:</span>
+        <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-between sm:justify-start">
+          <span className="text-slate-400 text-xs">หมวด:</span>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-2.5 py-1.5 rounded-xl border border-slate-300 bg-white text-slate-700 text-xs focus:outline-none"
+            className="flex-1 sm:flex-initial px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs focus:outline-none"
           >
             <option value="all">ทุกหมวดหมู่</option>
             <option value="gold">ทองคำ/รูปพรรณ</option>
@@ -268,133 +270,256 @@ export const Workstation: React.FC<WorkstationProps> = ({
         </div>
       </div>
 
+      {/* Mobile Master-Detail View Switcher Tab (Visible only on < lg) */}
+      <div className="lg:hidden flex items-center bg-slate-200/90 p-1 rounded-xl shrink-0 gap-1 text-xs font-semibold">
+        <button
+          type="button"
+          onClick={() => setMobileActiveView('list')}
+          className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+            mobileActiveView === 'list'
+              ? 'bg-white text-indigo-700 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <span>📋 รายการสัญญา ({filteredContracts.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileActiveView('detail')}
+          className={`flex-1 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all ${
+            mobileActiveView === 'detail'
+              ? 'bg-white text-indigo-700 shadow-2xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <span>📄 ตรวจสอบ / จัดการ</span>
+          {selectedContract && (
+            <span className="font-mono text-[10px] text-amber-700 bg-amber-100 px-1 rounded">
+              {selectedContract.contractNumber}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* 3. Main Split Workstation Canvas */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+      <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch overflow-hidden">
         {/* Left Side: Dense Contract Grid (8 cols) */}
-        <div className="lg:col-span-7 xl:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-3.5 border-b border-slate-200 bg-slate-50/50 flex justify-between items-center text-xs">
+        <div className={`lg:col-span-7 xl:col-span-8 bg-white rounded-xl border border-slate-200 shadow-2xs h-full min-h-0 flex-col overflow-hidden ${
+          mobileActiveView === 'list' ? 'flex' : 'hidden lg:flex'
+        }`}>
+          <div className="px-3.5 py-2 border-b border-slate-200 bg-slate-50/75 flex justify-between items-center text-xs shrink-0">
             <span className="font-semibold text-slate-700">
               รายการสัญญาขายฝาก ({filteredContracts.length} รายการ)
             </span>
-            <span className="text-slate-400">คลิกที่แถวเพื่อดูรายละเอียดและจัดการสัญญา</span>
+            <span className="text-slate-400 text-[11px] hidden sm:inline">คลิกที่แถวเพื่อดูรายละเอียดและจัดการสัญญา</span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs text-left">
-              <thead className="bg-slate-100/70 border-b border-slate-200 text-slate-500 font-medium">
-                <tr>
-                  <th className="py-2.5 px-3">เลขสัญญา</th>
-                  <th className="py-2.5 px-3">ลูกค้า</th>
-                  <th className="py-2.5 px-3">รายการทรัพย์สิน</th>
-                  <th className="py-2.5 px-3 text-right">เงินต้น</th>
-                  <th className="py-2.5 px-3">ครบกำหนด</th>
-                  <th className="py-2.5 px-3 text-center">สถานะ</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredContracts.map(c => {
-                  const isSelected = selectedContract?.id === c.id;
-                  const days = getDaysRemaining(c.dueDate);
-                  const isOverdue = days < 0;
-                  const isDueSoon = days >= 0 && days <= 7;
+          <div className="flex-1 min-h-0 overflow-y-auto">
+            {/* Mobile Card Feed (visible on < sm screens) */}
+            <div className="sm:hidden divide-y divide-slate-100">
+              {filteredContracts.map(c => {
+                const isSelected = selectedContract?.id === c.id;
+                const days = getDaysRemaining(c.dueDate);
+                const isOverdue = days < 0;
+                const isDueSoon = days >= 0 && days <= 7;
 
-                  return (
-                    <tr
-                      key={c.id}
-                      onClick={() => setSelectedContractId(c.id)}
-                      className={`cursor-pointer transition-colors ${
-                        isSelected
-                          ? 'bg-indigo-50/80 font-medium'
-                          : 'hover:bg-slate-50'
-                      }`}
-                    >
-                      <td className="py-2.5 px-3 font-mono font-semibold text-indigo-700 whitespace-nowrap">
-                        <div className="flex items-center gap-1.5">
-                          {c.isLocked && <Lock className="w-3 h-3 text-slate-400 shrink-0" />}
-                          <span>{c.contractNumber}</span>
-                        </div>
-                      </td>
+                return (
+                  <div
+                    key={c.id}
+                    onClick={() => {
+                      setSelectedContractId(c.id);
+                      setMobileActiveView('detail');
+                    }}
+                    className={`p-3 cursor-pointer transition-colors active:bg-indigo-50/80 ${
+                      isSelected ? 'bg-indigo-50/60' : 'hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-indigo-700">
+                        {c.isLocked && <Lock className="w-3 h-3 text-slate-400" />}
+                        <span>{c.contractNumber}</span>
+                      </div>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                        c.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
+                        c.status === 'due_soon' ? 'bg-amber-100 text-amber-800' :
+                        c.status === 'overdue' ? 'bg-rose-100 text-rose-800' :
+                        c.status === 'redeemed' ? 'bg-slate-100 text-slate-700' :
+                        'bg-purple-100 text-purple-800'
+                      }`}>
+                        {c.status === 'active' ? 'ปกติ' :
+                         c.status === 'due_soon' ? 'ใกล้ครบ' :
+                         c.status === 'overdue' ? 'เกินกำหนด' :
+                         c.status === 'redeemed' ? 'ไถ่ถอนแล้ว' : 'ยึดหลุดแล้ว'}
+                      </span>
+                    </div>
 
-                      <td className="py-2.5 px-3 whitespace-nowrap">
-                        <div className="font-semibold text-slate-900">{c.customerSnapshot.firstName} {c.customerSnapshot.lastName}</div>
-                        <div className="text-[10px] text-slate-400 font-mono">{formatCitizenId(c.customerSnapshot.citizenId)}</div>
-                      </td>
-
-                      <td className="py-2.5 px-3 max-w-[200px]">
-                        <div className="flex items-center gap-1.5 truncate">
-                          {getItemCategoryIcon(c.item.category)}
-                          <span className="truncate text-slate-800">{c.item.name}</span>
-                        </div>
-                        {c.item.gold && (
-                          <div className="text-[10px] text-amber-700 font-mono">
-                            ทอง {c.item.gold.purity} | {c.item.gold.weightBaht} บาท ({c.item.gold.weightGram}g)
-                          </div>
-                        )}
-                        {c.item.phone && (
-                          <div className="text-[10px] text-slate-500 font-mono truncate">
-                            IMEI: {c.item.phone.imei}
-                          </div>
-                        )}
-                      </td>
-
-                      <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <div className="font-semibold text-slate-900 truncate">
+                        {c.customerSnapshot.firstName} {c.customerSnapshot.lastName}
+                      </div>
+                      <div className="font-mono font-bold text-slate-900 text-sm">
                         {formatCurrency(c.loanAmount)}
-                      </td>
+                      </div>
+                    </div>
 
-                      <td className="py-2.5 px-3 whitespace-nowrap">
-                        <div className="text-slate-800">{formatThaiDate(c.dueDate)}</div>
-                        {c.status !== 'redeemed' && c.status !== 'forfeited' && (
-                          <div className={`text-[10px] font-medium ${
-                            isOverdue ? 'text-rose-600 font-bold' : isDueSoon ? 'text-amber-600 font-semibold' : 'text-slate-400'
-                          }`}>
-                            {isOverdue ? `เกิน ${Math.abs(days)} วัน` : days === 0 ? 'ครบกำหนดวันนี้!' : `เหลือ ${days} วัน`}
+                    <div className="flex items-center justify-between text-[11px] text-slate-500">
+                      <div className="flex items-center gap-1 truncate max-w-[200px]">
+                        {getItemCategoryIcon(c.item.category)}
+                        <span className="truncate">{c.item.name}</span>
+                      </div>
+                      <div className={`${
+                        isOverdue ? 'text-rose-600 font-bold' : isDueSoon ? 'text-amber-600 font-semibold' : 'text-slate-500'
+                      }`}>
+                        {isOverdue ? `เกิน ${Math.abs(days)} วัน` : days === 0 ? 'ครบกำหนดวันนี้' : `เหลือ ${days} วัน`}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {filteredContracts.length === 0 && (
+                <div className="py-12 text-center text-slate-400 text-xs">
+                  ไม่พบสัญญาขายฝากที่ตรงกับเงื่อนไขการค้นหา
+                </div>
+              )}
+            </div>
+
+            {/* Desktop & Tablet Table (visible on sm and up) */}
+            <div className="hidden sm:block">
+              <table className="w-full text-xs text-left border-collapse">
+                <thead className="sticky top-0 bg-slate-100/95 backdrop-blur-xs z-10 shadow-2xs border-b border-slate-200 text-slate-600 font-medium">
+                  <tr>
+                    <th className="py-2 px-3">เลขสัญญา</th>
+                    <th className="py-2 px-3">ลูกค้า</th>
+                    <th className="py-2 px-3">รายการทรัพย์สิน</th>
+                    <th className="py-2 px-3 text-right">เงินต้น</th>
+                    <th className="py-2 px-3">ครบกำหนด</th>
+                    <th className="py-2 px-3 text-center">สถานะ</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredContracts.map(c => {
+                    const isSelected = selectedContract?.id === c.id;
+                    const days = getDaysRemaining(c.dueDate);
+                    const isOverdue = days < 0;
+                    const isDueSoon = days >= 0 && days <= 7;
+
+                    return (
+                      <tr
+                        key={c.id}
+                        onClick={() => {
+                          setSelectedContractId(c.id);
+                          setMobileActiveView('detail');
+                        }}
+                        className={`cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-indigo-50/80 font-medium'
+                            : 'hover:bg-slate-50'
+                        }`}
+                      >
+                        <td className="py-2.5 px-3 font-mono font-semibold text-indigo-700 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            {c.isLocked && <Lock className="w-3 h-3 text-slate-400 shrink-0" />}
+                            <span>{c.contractNumber}</span>
                           </div>
-                        )}
-                      </td>
+                        </td>
 
-                      <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
-                          c.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
-                          c.status === 'due_soon' ? 'bg-amber-100 text-amber-800' :
-                          c.status === 'overdue' ? 'bg-rose-100 text-rose-800' :
-                          c.status === 'redeemed' ? 'bg-slate-100 text-slate-700' :
-                          'bg-purple-100 text-purple-800'
-                        }`}>
-                          {c.status === 'active' ? 'ปกติ' :
-                           c.status === 'due_soon' ? 'ใกล้ครบ' :
-                           c.status === 'overdue' ? 'เกินกำหนด' :
-                           c.status === 'redeemed' ? 'ไถ่ถอนแล้ว' : 'ยึดหลุดแล้ว'}
-                        </span>
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <div className="font-semibold text-slate-900">{c.customerSnapshot.firstName} {c.customerSnapshot.lastName}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">{formatCitizenId(c.customerSnapshot.citizenId)}</div>
+                        </td>
+
+                        <td className="py-2.5 px-3 max-w-[200px]">
+                          <div className="flex items-center gap-1.5 truncate">
+                            {getItemCategoryIcon(c.item.category)}
+                            <span className="truncate text-slate-800">{c.item.name}</span>
+                          </div>
+                          {c.item.gold && (
+                            <div className="text-[10px] text-amber-700 font-mono">
+                              ทอง {c.item.gold.purity} | {c.item.gold.weightBaht} บาท ({c.item.gold.weightGram}g)
+                            </div>
+                          )}
+                          {c.item.phone && (
+                            <div className="text-[10px] text-slate-500 font-mono truncate">
+                              IMEI: {c.item.phone.imei}
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                          {formatCurrency(c.loanAmount)}
+                        </td>
+
+                        <td className="py-2.5 px-3 whitespace-nowrap">
+                          <div className="text-slate-800">{formatThaiDate(c.dueDate)}</div>
+                          {c.status !== 'redeemed' && c.status !== 'forfeited' && (
+                            <div className={`text-[10px] font-medium ${
+                              isOverdue ? 'text-rose-600 font-bold' : isDueSoon ? 'text-amber-600 font-semibold' : 'text-slate-400'
+                            }`}>
+                              {isOverdue ? `เกิน ${Math.abs(days)} วัน` : days === 0 ? 'ครบกำหนดวันนี้!' : `เหลือ ${days} วัน`}
+                            </div>
+                          )}
+                        </td>
+
+                        <td className="py-2.5 px-3 text-center whitespace-nowrap">
+                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
+                            c.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
+                            c.status === 'due_soon' ? 'bg-amber-100 text-amber-800' :
+                            c.status === 'overdue' ? 'bg-rose-100 text-rose-800' :
+                            c.status === 'redeemed' ? 'bg-slate-100 text-slate-700' :
+                            'bg-purple-100 text-purple-800'
+                          }`}>
+                            {c.status === 'active' ? 'ปกติ' :
+                             c.status === 'due_soon' ? 'ใกล้ครบ' :
+                             c.status === 'overdue' ? 'เกินกำหนด' :
+                             c.status === 'redeemed' ? 'ไถ่ถอนแล้ว' : 'ยึดหลุดแล้ว'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+
+                  {filteredContracts.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-slate-400">
+                        ไม่พบสัญญาขายฝากที่ตรงกับเงื่อนไขการค้นหา
                       </td>
                     </tr>
-                  );
-                })}
-
-                {filteredContracts.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-slate-400">
-                      ไม่พบสัญญาขายฝากที่ตรงกับเงื่อนไขการค้นหา
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
         {/* Right Side: Contract Inspector & Single-Screen Action Center (4 or 5 cols) */}
-        <div className="lg:col-span-5 xl:col-span-4 space-y-4">
+        <div className={`lg:col-span-5 xl:col-span-4 h-full min-h-0 flex-col overflow-hidden ${
+          mobileActiveView === 'detail' ? 'flex' : 'hidden lg:flex'
+        }`}>
           {selectedContract ? (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden text-xs">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-2xs h-full min-h-0 flex flex-col overflow-hidden text-xs">
+              {/* Mobile Back Button strip */}
+              <div className="lg:hidden flex items-center justify-between bg-slate-800 px-3 py-1.5 text-xs text-amber-300 border-b border-slate-700 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setMobileActiveView('list')}
+                  className="flex items-center gap-1 font-medium hover:text-white"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  <span>กลับไปรายการสัญญา</span>
+                </button>
+                <span className="text-[11px] text-slate-400 font-mono">#{selectedContract.contractNumber}</span>
+              </div>
+
               {/* Header of Inspector */}
-              <div className="p-4 bg-slate-900 text-white flex justify-between items-start">
+              <div className="p-3 bg-slate-900 text-white flex justify-between items-start shrink-0">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-mono text-base font-bold text-amber-400">
                       {selectedContract.contractNumber}
                     </span>
                     {selectedContract.isLocked && (
-                      <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1">
                         <Lock className="w-3 h-3 text-amber-400" />
                         ล็อคสัญญา
                       </span>
@@ -407,25 +532,25 @@ export const Workstation: React.FC<WorkstationProps> = ({
 
                 <div className="text-right">
                   <div className="text-[10px] text-slate-400">ยอดเงินต้น</div>
-                  <div className="text-lg font-bold font-mono text-white">
+                  <div className="text-base font-bold font-mono text-white">
                     {formatCurrency(selectedContract.loanAmount)}
                   </div>
                 </div>
               </div>
 
               {/* Action Buttons Hub (ต่อดอก, ไถ่ถอน, พิมพ์ตั๋ว) */}
-              <div className="p-3 bg-slate-100 border-b border-slate-200 grid grid-cols-3 gap-2">
+              <div className="p-2 bg-slate-100 border-b border-slate-200 grid grid-cols-3 gap-1.5 shrink-0">
                 <button
                   type="button"
                   disabled={selectedContract.status === 'redeemed' || selectedContract.status === 'forfeited'}
                   onClick={() => onOpenInterestModal(selectedContract)}
-                  className={`py-2 px-1 rounded-xl font-medium text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-xs ${
+                  className={`py-1.5 px-1 rounded-lg font-medium text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-2xs ${
                     selectedContract.status === 'redeemed' || selectedContract.status === 'forfeited'
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                       : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95'
                   }`}
                 >
-                  <Calendar className="w-4 h-4" />
+                  <Calendar className="w-3.5 h-3.5" />
                   <span>ต่อดอกเบี้ย</span>
                 </button>
 
@@ -433,28 +558,28 @@ export const Workstation: React.FC<WorkstationProps> = ({
                   type="button"
                   disabled={selectedContract.status === 'redeemed' || selectedContract.status === 'forfeited'}
                   onClick={() => onOpenRedeemModal(selectedContract)}
-                  className={`py-2 px-1 rounded-xl font-medium text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-xs ${
+                  className={`py-1.5 px-1 rounded-lg font-medium text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-2xs ${
                     selectedContract.status === 'redeemed' || selectedContract.status === 'forfeited'
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                       : 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
                   }`}
                 >
-                  <Award className="w-4 h-4" />
+                  <Award className="w-3.5 h-3.5" />
                   <span>ไถ่ถอนทรัพย์</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => onOpenPrintModal(selectedContract)}
-                  className="py-2 px-1 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl font-medium text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-xs active:scale-95"
+                  className="py-1.5 px-1 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg font-medium text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-2xs active:scale-95"
                 >
-                  <Printer className="w-4 h-4 text-indigo-600" />
+                  <Printer className="w-3.5 h-3.5 text-indigo-600" />
                   <span>พิมพ์ตั๋ว/สลิป</span>
                 </button>
               </div>
 
               {/* Inspector Body Details */}
-              <div className="p-4 space-y-4 max-h-[calc(100vh-320px)] overflow-y-auto">
+              <div className="flex-1 min-h-0 p-3 space-y-3 overflow-y-auto">
                 {/* 1. Customer Section */}
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1">
                   <div className="flex justify-between items-center text-slate-500 font-medium border-b border-slate-200 pb-1">
@@ -625,7 +750,7 @@ export const Workstation: React.FC<WorkstationProps> = ({
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center text-xs text-slate-400">
+            <div className="bg-white rounded-xl border border-dashed border-slate-300 p-8 text-center text-xs text-slate-400 h-full flex items-center justify-center">
               กรุณาเลือกสัญญาจากรายการทางซ้าย
             </div>
           )}
