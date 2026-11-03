@@ -106,9 +106,29 @@ export const RedemptionModal: React.FC<RedemptionModalProps> = ({
             <div className="p-2.5 bg-white border border-slate-200 rounded-lg">
               <div className="font-bold text-slate-900 text-sm">{contract.item.name}</div>
               <div className="text-slate-600 mt-0.5">{contract.item.description}</div>
-              {contract.item.gold && (
-                <div className="text-amber-800 font-medium mt-1">
-                  ทองคำ {contract.item.gold.purity} | น้ำหนัก {contract.item.gold.weightBaht} บาท ({contract.item.gold.weightGram} กรัม)
+              {contract.item.notebook && (
+                <div className="text-indigo-800 font-medium mt-1 text-[11px]">
+                  S/N: {contract.item.notebook.serialNumber} | CPU: {contract.item.notebook.processor} | RAM {contract.item.notebook.ramGb}GB | {contract.item.notebook.storage}
+                </div>
+              )}
+              {contract.item.computer && (
+                <div className="text-cyan-800 font-medium mt-1 text-[11px]">
+                  {contract.item.computer.brandOrCustom} | CPU: {contract.item.computer.processor} | RAM {contract.item.computer.ramGb}GB | {contract.item.computer.storage}
+                </div>
+              )}
+              {contract.item.printer && (
+                <div className="text-emerald-800 font-medium mt-1 text-[11px]">
+                  S/N: {contract.item.printer.serialNumber} | ปริ้นเตอร์ {contract.item.printer.brand} {contract.item.printer.model} | หัวพิมพ์: {contract.item.printer.headCondition === 'normal' ? '100%' : 'มีเส้น'}
+                </div>
+              )}
+              {contract.item.phone && (
+                <div className="text-blue-800 font-medium mt-1 text-[11px]">
+                  IMEI: {contract.item.phone.imei} | {contract.item.phone.storageGb}
+                </div>
+              )}
+              {contract.item.itGadget && (
+                <div className="text-purple-800 font-medium mt-1 text-[11px]">
+                  S/N: {contract.item.itGadget.serialNumber} | {contract.item.itGadget.brand} {contract.item.itGadget.model}
                 </div>
               )}
             </div>

@@ -1,7 +1,45 @@
 import React, { useState, useRef } from 'react';
-import { X, Camera, Plus, Check, Search, Sparkles, AlertCircle, RefreshCw, Layers } from 'lucide-react';
-import { Customer, PawnContract, PawnItem, ItemCategory, ShopSettings, UserAccount } from '../types/pawn';
-import { formatCurrency, formatThaiDate, calculateTieredInterestRate, addMonthsToDate, formatCitizenId, formatPhone } from '../utils/thaiFormat';
+import {
+  X,
+  Camera,
+  Plus,
+  Check,
+  Search,
+  Sparkles,
+  AlertCircle,
+  RefreshCw,
+  Layers,
+  Laptop,
+  Monitor,
+  Printer,
+  Smartphone,
+  Cpu,
+  HardDrive,
+  Package,
+  ShieldCheck,
+  UserCheck
+} from 'lucide-react';
+import {
+  Customer,
+  PawnContract,
+  PawnItem,
+  ItemCategory,
+  ShopSettings,
+  UserAccount,
+  NotebookItemDetails,
+  ComputerItemDetails,
+  PrinterItemDetails,
+  PhoneDetails,
+  ItGadgetDetails
+} from '../types/pawn';
+import {
+  formatCurrency,
+  formatThaiDate,
+  calculateTieredInterestRate,
+  addMonthsToDate,
+  formatCitizenId,
+  formatPhone
+} from '../utils/thaiFormat';
 import { generateNextContractNumber } from '../utils/storage';
 
 interface NewContractModalProps {
@@ -13,6 +51,20 @@ interface NewContractModalProps {
   settings: ShopSettings;
   currentUser: UserAccount;
 }
+
+const COMMON_NOTEBOOK_BRANDS = ['Asus', 'Acer', 'Lenovo', 'Dell', 'HP', 'Apple', 'MSI', 'Huawei'];
+const COMMON_PRINTER_BRANDS = ['Epson', 'Canon', 'Brother', 'HP'];
+const COMMON_PRINTER_MODELS = [
+  'EcoTank L3250 Wi-Fi',
+  'EcoTank L4260 Duplex Wi-Fi',
+  'EcoTank L3110',
+  'EcoTank L121',
+  'PIXMA G3010 Wi-Fi',
+  'PIXMA G2010',
+  'DCP-T420W Wi-Fi',
+  'DCP-T520W Duplex',
+  'Smart Tank 515 Wi-Fi',
+];
 
 export const NewContractModal: React.FC<NewContractModalProps> = ({
   isOpen,
@@ -35,52 +87,77 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
   const [newCustLastName, setNewCustLastName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('');
   const [newCustLineId, setNewCustLineId] = useState('');
-  const [newCustAddress, setNewCustAddress] = useState('');
+  const [newCustAddress, setNewCustAddress] = useState('อำเภอเมือง จังหวัดพัทลุง 93000');
   const [newCustIsVip, setNewCustIsVip] = useState(false);
 
-  // Item fields
-  const [category, setCategory] = useState<ItemCategory>('gold');
-  const [itemName, setItemName] = useState('');
-  const [itemDescription, setItemDescription] = useState('');
-  const [estimatedValue, setEstimatedValue] = useState<number>(0);
-  const [storageLocation, setStorageLocation] = useState('ตู้เซฟ A-01 ลิ้นชักทอง');
-  const [photos, setPhotos] = useState<string[]>([]);
+  // Item category (Computer, Laptop, Printer, Phone, IT Gadget)
+  const [category, setCategory] = useState<ItemCategory>('notebook');
+  const [itemName, setItemName] = useState('Asus ROG Strix G16 (Core i7 / RAM 16GB / RTX 4060)');
+  const [itemDescription, setItemDescription] = useState('โน็ตบุ้คเกมมิ่ง สภาพ 98% สายชาร์จแท้ ครบกล่อง ปลดล็อคคลาวด์แล้ว');
+  const [estimatedValue, setEstimatedValue] = useState<number>(40000);
+  const [storageLocation, setStorageLocation] = useState('ตู้ไอที ชั้น 2 ล็อกเกอร์ B-01 พัทลุง');
+  const [photos, setPhotos] = useState<string[]>([
+    'https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=600&q=80',
+  ]);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Category specific fields
-  // 1. Gold
-  const [goldType, setGoldType] = useState<'necklace' | 'bracelet' | 'ring' | 'bangle' | 'pendant' | 'bar' | 'other'>('necklace');
-  const [goldTypeName, setGoldTypeName] = useState('สร้อยคอ');
-  const [goldPurity, setGoldPurity] = useState<'96.5%' | '99.99%' | '90%' | 'other'>('96.5%');
-  const [goldWeightBaht, setGoldWeightBaht] = useState<number>(1);
-  const [goldWeightGram, setGoldWeightGram] = useState<number>(15.244);
-  const [goldCondition, setGoldCondition] = useState('สภาพสวย 98% ตราปั๊มชัดเจน');
+  // 1. Notebook fields
+  const [nbBrand, setNbBrand] = useState('Asus');
+  const [nbModel, setNbModel] = useState('ROG Strix G16');
+  const [nbSerial, setNbSerial] = useState('R90Z8912A004');
+  const [nbProcessor, setNbProcessor] = useState('Intel Core i7-13650HX');
+  const [nbRam, setNbRam] = useState<number>(16);
+  const [nbStorage, setNbStorage] = useState('SSD 1TB M.2 NVMe');
+  const [nbGpu, setNbGpu] = useState('NVIDIA GeForce RTX 4060');
+  const [nbBattery, setNbBattery] = useState('เก็บไฟดีมาก (> 3 ชม.)');
+  const [nbHasCharger, setNbHasCharger] = useState(true);
+  const [nbHasBag, setNbHasBag] = useState(true);
+  const [nbIcloudStatus, setNbIcloudStatus] = useState<'signed_out' | 'unlocked' | 'locked'>('unlocked');
 
-  // 2. Phone
+  // 2. Computer PC fields
+  const [pcBrandOrCustom, setPcBrandOrCustom] = useState('ประกอบคัสตอม (Custom Gaming PC)');
+  const [pcModelOrCase, setPcModelOrCase] = useState('Case NZXT H5 Flow RGB สีดำ');
+  const [pcProcessor, setPcProcessor] = useState('Intel Core i5-13400F');
+  const [pcRam, setPcRam] = useState<number>(32);
+  const [pcStorage, setPcStorage] = useState('SSD 1TB M.2 NVMe');
+  const [pcGpu, setPcGpu] = useState('NVIDIA GeForce RTX 3060 12GB');
+  const [pcMonitor, setPcMonitor] = useState('AOC 24G2SP 24" IPS 165Hz');
+  const [pcAccessories, setPcAccessories] = useState('จอ 24 นิ้ว, เมาส์, คีย์บอร์ด, สายไฟ AC x2, สาย HDMI');
+
+  // 3. Printer fields
+  const [prBrand, setPrBrand] = useState('Epson');
+  const [prModel, setPrModel] = useState('EcoTank L3250 Wi-Fi');
+  const [prSerial, setPrSerial] = useState('X8TY019942');
+  const [prType, setPrType] = useState<'ink_tank' | 'laser' | 'all_in_one' | 'dot_matrix'>('ink_tank');
+  const [prInkSystem, setPrInkSystem] = useState<'genuine_tank' | 'cartridge' | 'mod_tank'>('genuine_tank');
+  const [prHeadCondition, setPrHeadCondition] = useState<'normal' | 'need_clean'>('normal');
+  const [prHasPowerCable, setPrHasPowerCable] = useState(true);
+  const [prHasUsbCable, setPrHasUsbCable] = useState(true);
+
+  // 4. Phone fields
   const [phoneBrand, setPhoneBrand] = useState('Apple');
   const [phoneModel, setPhoneModel] = useState('iPhone 16 Pro Max');
   const [phoneStorage, setPhoneStorage] = useState('256GB');
-  const [phoneImei, setPhoneImei] = useState('');
-  const [phoneSerialNumber, setPhoneSerialNumber] = useState('');
+  const [phoneImei, setPhoneImei] = useState('358921098877665');
+  const [phoneSerialNumber, setPhoneSerialNumber] = useState('XJ99M7890KL');
   const [phoneIcloudStatus, setPhoneIcloudStatus] = useState<'signed_out' | 'locked' | 'unlocked'>('signed_out');
   const [phoneAccessories, setPhoneAccessories] = useState('กล่องแท้, สายชาร์จแท้');
 
-  // 3. Vehicle
-  const [vehicleType, setVehicleType] = useState<'motorcycle' | 'car' | 'pickup' | 'other'>('motorcycle');
-  const [licensePlate, setLicensePlate] = useState('');
-  const [vehicleProvince, setVehicleProvince] = useState('กรุงเทพมหานคร');
-  const [vehicleBrand, setVehicleBrand] = useState('Honda');
-  const [vehicleModel, setVehicleModel] = useState('Wave 125i');
-  const [vehicleHasBook, setVehicleHasBook] = useState(true);
+  // 5. IT Gadget fields
+  const [gtType, setGtType] = useState<'tablet' | 'monitor' | 'camera' | 'gpu_part' | 'console' | 'other'>('monitor');
+  const [gtBrand, setGtBrand] = useState('AOC');
+  const [gtModel, setGtModel] = useState('24G2SP 165Hz IPS');
+  const [gtSerial, setGtSerial] = useState('');
+  const [gtSpecs, setGtSpecs] = useState('จอมอนิเตอร์เกมมิ่ง 24 นิ้ว 165Hz รองรับ FreeSync พร้อมขาตั้งและหม้อแปลง');
 
   // Financial fields
-  const [loanAmount, setLoanAmount] = useState<number>(30000);
+  const [loanAmount, setLoanAmount] = useState<number>(20000);
   const [isTieredRate, setIsTieredRate] = useState<boolean>(settings.enableSteppedTiers);
   const [monthlyInterestRate, setMonthlyInterestRate] = useState<number>(
     settings.enableSteppedTiers
-      ? calculateTieredInterestRate(30000, settings.tiers, settings.defaultMonthlyRate)
+      ? calculateTieredInterestRate(20000, settings.tiers, settings.defaultMonthlyRate)
       : settings.defaultMonthlyRate
   );
   const [durationMonths, setDurationMonths] = useState<number>(settings.defaultDurationMonths || 2);
@@ -100,13 +177,44 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
     }
   };
 
-  // Preset gold weight helper
-  const handleGoldWeightSelect = (baht: number) => {
-    setGoldWeightBaht(baht);
-    const gram = +(baht * 15.244).toFixed(3);
-    setGoldWeightGram(gram);
-    if (!itemName) {
-      setItemName(`${goldTypeName}ทองคำ 96.5% น้ำหนัก ${baht} บาท`);
+  // Preset helpers for categories
+  const handleSelectCategory = (cat: ItemCategory) => {
+    setCategory(cat);
+    if (cat === 'notebook') {
+      setItemName(`${nbBrand} ${nbModel} (${nbProcessor} / RAM ${nbRam}GB)`);
+      setItemDescription(`โน็ตบุ้ค ${nbBrand} แรม ${nbRam}GB ${nbStorage} สภาพดี`);
+      setEstimatedValue(32000);
+      setLoanAmount(22000);
+      setStorageLocation('ตู้ไอที ชั้น 2 ล็อกเกอร์ B-01 พัทลุง');
+      setPhotos(['https://images.unsplash.com/photo-1603302576837-37561b2e2302?auto=format&fit=crop&w=600&q=80']);
+    } else if (cat === 'computer') {
+      setItemName(`ชุดคอมพิวเตอร์พีซี ${pcProcessor} / ${pcGpu} / RAM ${pcRam}GB`);
+      setItemDescription(`ชุดคอมพิวเตอร์เกมมิ่ง เคส ${pcModelOrCase} พร้อมอุปกรณ์`);
+      setEstimatedValue(26000);
+      setLoanAmount(18000);
+      setStorageLocation('ชั้นวางคอมพิวเตอร์ โซน PC-02 พัทลุง');
+      setPhotos(['https://images.unsplash.com/photo-1587202372775-e229f172b9d7?auto=format&fit=crop&w=600&q=80']);
+    } else if (cat === 'printer') {
+      setItemName(`เครื่องพิมพ์ ${prBrand} ${prModel} (แท็งก์แท้ศูนย์)`);
+      setItemDescription(`ปริ้นเตอร์มัลติฟังก์ชันระบบแท็งก์ ${prBrand} หัวพิมพ์สมบูรณ์`);
+      setEstimatedValue(5000);
+      setLoanAmount(3500);
+      setStorageLocation('ชั้นวางสต็อกปริ้นเตอร์ โซน PR-01 พัทลุง');
+      setPhotos(['https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?auto=format&fit=crop&w=600&q=80']);
+    } else if (cat === 'phone') {
+      setItemName(`${phoneBrand} ${phoneModel} ${phoneStorage}`);
+      setItemDescription(`สมาร์ทโฟน ${phoneBrand} ${phoneModel} ครบกล่อง ปลดล็อคแล้ว`);
+      setEstimatedValue(35000);
+      setLoanAmount(25000);
+      setStorageLocation('ตู้ไอที ชั้น 2 ล็อกเกอร์ 14 พัทลุง');
+      setPhotos(['https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=600&q=80']);
+    } else if (cat === 'gadget_it') {
+      setItemName(`จอภาพ ${gtBrand} ${gtModel}`);
+      setItemDescription(gtSpecs);
+      setEstimatedValue(6000);
+      setLoanAmount(4000);
+      setStorageLocation('ชั้นวางอุปกรณ์ไอที โซน G-02 พัทลุง');
+      setPhotos(['https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?auto=format&fit=crop&w=600&q=80']);
     }
   };
 
@@ -140,9 +248,9 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
     canvas.height = videoRef.current.videoHeight || 480;
     const ctx = canvas.getContext('2d');
     if (ctx) {
-      ctx.drawImage(videoRef.current, 0, 0);
+      ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
       const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-      setPhotos(prev => [...prev.slice(0, 3), dataUrl]);
+      setPhotos(prev => [...prev, dataUrl]);
     }
     stopCamera();
   };
@@ -150,41 +258,19 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    const file = files[0];
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        setPhotos(prev => [...prev.slice(0, 3), reader.result as string]);
-      }
-    };
-    reader.readAsDataURL(file);
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          setPhotos(prev => [...prev, event.target!.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
-  // Add default demo photo for speed
-  const addSamplePhoto = () => {
-    const samplePhotos = {
-      gold: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=600&q=80',
-      phone: 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?auto=format&fit=crop&w=600&q=80',
-      vehicle: 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=600&q=80',
-      jewelry: 'https://images.unsplash.com/photo-1605100804763-247f67b3557e?auto=format&fit=crop&w=600&q=80',
-      general: 'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=600&q=80',
-    };
-    setPhotos(prev => [...prev.slice(0, 3), samplePhotos[category]]);
-  };
-
-  // Filtered customer list for instant search
-  const filteredCustomers = customers.filter(c => {
-    const q = customerSearchQuery.toLowerCase().trim();
-    if (!q) return true;
-    return (
-      c.firstName.toLowerCase().includes(q) ||
-      c.lastName.toLowerCase().includes(q) ||
-      c.citizenId.includes(q) ||
-      c.phone.includes(q)
-    );
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
+  // Save new contract
+  const handleSaveContract = (e: React.FormEvent) => {
     e.preventDefault();
 
     let targetCustomer: Customer;
@@ -192,7 +278,7 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
 
     if (customerMode === 'search') {
       if (!selectedCustomer) {
-        alert('กรุณาเลือกข้อมูลลูกค้า หรือคลิก "ลงทะเบียนลูกค้าใหม่"');
+        alert('กรุณาเลือกข้อมูลลูกค้า หรือเลือกแท็บ "เพิ่มลูกค้าใหม่"');
         return;
       }
       targetCustomer = selectedCustomer;
@@ -221,22 +307,46 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
       return;
     }
 
-    // Prepare item details
-    const finalItemName = itemName.trim() || (category === 'gold' ? `${goldTypeName}ทองคำ 96.5% น้ำหนัก ${goldWeightBaht} บาท` : `สินค้า${category}`);
+    // Build IT PawnItem object
     const pawnItem: PawnItem = {
       id: `item-${Date.now()}`,
       category,
-      name: finalItemName,
-      description: itemDescription.trim() || finalItemName,
-      estimatedValue: estimatedValue || loanAmount * 1.25,
+      name: itemName.trim() || `สินค้าไอที ${category}`,
+      description: itemDescription.trim() || itemName,
+      estimatedValue: estimatedValue || loanAmount * 1.3,
       photos,
-      gold: category === 'gold' ? {
-        goldType,
-        goldTypeName,
-        purity: goldPurity,
-        weightBaht: goldWeightBaht,
-        weightGram: goldWeightGram,
-        condition: goldCondition,
+      notebook: category === 'notebook' ? {
+        brand: nbBrand,
+        model: nbModel,
+        serialNumber: nbSerial.trim().toUpperCase(),
+        processor: nbProcessor,
+        ramGb: nbRam,
+        storage: nbStorage,
+        gpu: nbGpu,
+        batteryHealth: nbBattery,
+        hasCharger: nbHasCharger,
+        hasBag: nbHasBag,
+        icloudStatus: nbIcloudStatus,
+      } : undefined,
+      computer: category === 'computer' ? {
+        brandOrCustom: pcBrandOrCustom,
+        modelOrCase: pcModelOrCase,
+        processor: pcProcessor,
+        ramGb: pcRam,
+        storage: pcStorage,
+        gpu: pcGpu,
+        monitor: pcMonitor,
+        accessories: pcAccessories.split(',').map(s => s.trim()).filter(Boolean),
+      } : undefined,
+      printer: category === 'printer' ? {
+        brand: prBrand,
+        model: prModel,
+        serialNumber: prSerial.trim().toUpperCase(),
+        printerType: prType,
+        inkSystem: prInkSystem,
+        headCondition: prHeadCondition,
+        hasPowerCable: prHasPowerCable,
+        hasUsbCable: prHasUsbCable,
       } : undefined,
       phone: category === 'phone' ? {
         brand: phoneBrand,
@@ -247,13 +357,13 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
         accessories: phoneAccessories.split(',').map(s => s.trim()).filter(Boolean),
         icloudStatus: phoneIcloudStatus,
       } : undefined,
-      vehicle: category === 'vehicle' ? {
-        vehicleType,
-        licensePlate: licensePlate.trim(),
-        province: vehicleProvince,
-        brand: vehicleBrand,
-        model: vehicleModel,
-        hasBook: vehicleHasBook,
+      itGadget: category === 'gadget_it' ? {
+        gadgetType: gtType,
+        brand: gtBrand,
+        model: gtModel,
+        serialNumber: gtSerial.trim(),
+        specsSummary: gtSpecs,
+        accessories: [],
       } : undefined,
     };
 
@@ -272,7 +382,7 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
       durationMonths,
       dueDate,
       status: 'active',
-      isLocked: true, // Locked to protect against unauthorized alterations
+      isLocked: true,
       storageLocation: storageLocation.trim(),
       interestPayments: [],
       amendmentLogs: [],
@@ -282,57 +392,67 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
     };
 
     onSave(newContract, newlyCreatedCustomer);
-    stopCamera();
     onClose();
   };
 
   if (!isOpen) return null;
 
-  const monthlyInterest = (loanAmount * monthlyInterestRate) / 100;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-0 sm:p-4 overflow-y-auto no-print">
-      <div className="w-full h-full sm:h-auto sm:max-h-[95vh] max-w-5xl bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-slate-200 overflow-hidden flex flex-col my-auto animate-in fade-in zoom-in-95 duration-150">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-linear-to-r from-indigo-900 via-indigo-800 to-slate-900 text-white shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-400 text-slate-900 shadow-xs font-bold">
-              <Plus className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="bg-white w-full sm:max-w-4xl max-h-[92vh] sm:max-h-[90vh] rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        
+        {/* Top Modal Header */}
+        <div className="p-3 sm:p-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center font-bold">
+              <Laptop className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="font-semibold text-lg tracking-tight">เปิดสัญญาใหม่ / บันทึกรับจำนำขายฝาก</h2>
-              <p className="text-xs text-indigo-200">ระบบบันทึกรายการด่วนหน้าจอเดียว (Single Screen Workstation)</p>
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <span>เปิดสัญญาขายฝาก / จำนำไอทีใหม่</span>
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-slate-800 text-amber-300 font-normal">
+                  คอมพิวเตอร์ & ปริ้นเตอร์
+                </span>
+              </h2>
+              <p className="text-xs text-slate-400">
+                พัทลุงปริ้นเตอร์ คอมพิวเตอร์ · บันทึกสัญญาขายฝาก ดอกเบี้ย และจัดเก็บอุปกรณ์ไอที
+              </p>
             </div>
           </div>
           <button
-            type="button"
-            onClick={() => { stopCamera(); onClose(); }}
-            className="p-2 rounded-xl text-indigo-200 hover:text-white hover:bg-white/10 transition-colors"
+            onClick={onClose}
+            className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-          {/* SECTION 1: AG CUSTOMER INTELLIGENCE */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
-                <h3 className="font-semibold text-slate-900 text-sm">ข้อมูลลูกค้า (AG Customer Intelligence)</h3>
+        {/* Modal Form Content */}
+        <form onSubmit={handleSaveContract} className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 text-slate-800 text-xs">
+          
+          {/* SECTION 1: CUSTOMER SELECTION / SMART LOOKUP */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+              <div className="flex items-center gap-2 font-bold text-slate-800 text-xs">
+                <UserCheck className="w-4 h-4 text-indigo-600" />
+                <span>ข้อมูลผู้ขายฝาก (ลูกค้า)</span>
               </div>
-              <div className="flex items-center p-1 bg-slate-200 rounded-lg text-xs">
+              <div className="flex bg-slate-200 p-0.5 rounded-lg text-xs">
                 <button
                   type="button"
                   onClick={() => setCustomerMode('search')}
-                  className={`px-3 py-1 rounded-md font-medium transition-colors ${customerMode === 'search' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600'}`}
+                  className={`px-3 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                    customerMode === 'search' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600'
+                  }`}
                 >
-                  ค้นหาลูกค้าเดิม
+                  ค้นหาลูกค้าเดิม (AG Customer)
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setCustomerMode('new'); setSelectedCustomer(null); }}
-                  className={`px-3 py-1 rounded-md font-medium transition-colors ${customerMode === 'new' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600'}`}
+                  onClick={() => setCustomerMode('new')}
+                  className={`px-3 py-1 rounded-md font-semibold transition-colors cursor-pointer ${
+                    customerMode === 'new' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600'
+                  }`}
                 >
                   + ลงทะเบียนลูกค้าใหม่
                 </button>
@@ -340,303 +460,537 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
             </div>
 
             {customerMode === 'search' ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
                   <input
                     type="text"
                     value={customerSearchQuery}
                     onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                    placeholder="พิมพ์ค้นหา: ชื่อ, นามสกุล, เลขบัตร ปชช. 13 หลัก, หรือเบอร์โทร..."
-                    className="w-full px-4 py-2.5 pl-10 rounded-xl border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="ค้นหาชื่อ, นามสกุล, หรือเลขบัตรประชาชน 13 หลัก..."
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500"
                   />
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 max-h-36 overflow-y-auto">
-                  {filteredCustomers.map(c => {
-                    const isSelected = selectedCustomer?.id === c.id;
-                    return (
+                <div className="max-h-32 overflow-y-auto divide-y divide-slate-100 bg-white border border-slate-200 rounded-lg shadow-2xs">
+                  {customers
+                    .filter(c =>
+                      c.firstName.includes(customerSearchQuery) ||
+                      c.lastName.includes(customerSearchQuery) ||
+                      c.citizenId.includes(customerSearchQuery) ||
+                      c.phone.includes(customerSearchQuery)
+                    )
+                    .map(cust => (
                       <div
-                        key={c.id}
-                        onClick={() => setSelectedCustomer(c)}
-                        className={`p-2.5 rounded-xl border cursor-pointer transition-all text-xs ${
-                          isSelected
-                            ? 'bg-indigo-50 border-indigo-500 ring-2 ring-indigo-200'
-                            : 'bg-white border-slate-200 hover:border-indigo-300'
+                        key={cust.id}
+                        onClick={() => setSelectedCustomer(cust)}
+                        className={`p-2 cursor-pointer flex justify-between items-center text-xs transition-colors ${
+                          selectedCustomer?.id === cust.id ? 'bg-amber-50/80 font-bold border-l-4 border-amber-500' : 'hover:bg-slate-50'
                         }`}
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-slate-900">{c.prefix}{c.firstName} {c.lastName}</span>
-                          {c.isVip && <span className="text-[10px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded">VIP</span>}
+                        <div>
+                          <span className="text-slate-900">{cust.prefix}{cust.firstName} {cust.lastName}</span>
+                          <span className="text-slate-500 ml-2 font-mono">({cust.phone})</span>
                         </div>
-                        <div className="text-slate-500 font-mono mt-0.5">{formatCitizenId(c.citizenId)}</div>
-                        <div className="text-slate-500 mt-0.5">โทร: {formatPhone(c.phone)}</div>
+                        <span className="text-slate-400 font-mono text-[11px]">{formatCitizenId(cust.citizenId)}</span>
                       </div>
-                    );
-                  })}
+                    ))}
                 </div>
 
                 {selectedCustomer && (
-                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between text-xs text-emerald-900">
-                    <div className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-                      <div>
-                        ลูกค้าที่เลือก: <strong className="text-sm">{selectedCustomer.prefix}{selectedCustomer.firstName} {selectedCustomer.lastName}</strong>
-                        <span className="text-slate-600 ml-2">บัตร ปชช. {formatCitizenId(selectedCustomer.citizenId)}</span>
-                      </div>
+                  <div className="bg-amber-50 border border-amber-200 p-2.5 rounded-lg text-amber-950 flex justify-between items-center">
+                    <div>
+                      <span className="font-bold">{selectedCustomer.prefix}{selectedCustomer.firstName} {selectedCustomer.lastName}</span>
+                      <span className="text-[11px] text-amber-800 ml-2">บัตร: {formatCitizenId(selectedCustomer.citizenId)} · โทร: {selectedCustomer.phone}</span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCustomer(null)}
-                      className="text-xs text-slate-500 hover:text-slate-800 underline"
-                    >
-                      เปลี่ยน
-                    </button>
+                    <span className="text-[10px] font-bold bg-amber-200 px-2 py-0.5 rounded-full text-amber-900">เลือกแล้ว</span>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
-                  <label className="block text-slate-600 mb-1">คำนำหน้า</label>
-                  <select
-                    value={newCustPrefix}
-                    onChange={(e) => setNewCustPrefix(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white"
-                  >
-                    <option value="นาย">นาย</option>
-                    <option value="นาง">นาง</option>
-                    <option value="นางสาว">นางสาว</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-slate-600 mb-1">ชื่อจริง <span className="text-rose-500">*</span></label>
-                  <input
-                    type="text"
-                    value={newCustFirstName}
-                    onChange={(e) => setNewCustFirstName(e.target.value)}
-                    placeholder="เช่น สมพร"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white"
-                    required={customerMode === 'new'}
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 mb-1">นามสกุล <span className="text-rose-500">*</span></label>
-                  <input
-                    type="text"
-                    value={newCustLastName}
-                    onChange={(e) => setNewCustLastName(e.target.value)}
-                    placeholder="เช่น มั่งมีสุข"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white"
-                    required={customerMode === 'new'}
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 mb-1">เลขบัตรประชาชน (13 หลัก) <span className="text-rose-500">*</span></label>
+                  <label className="block text-slate-700 font-semibold mb-1">เลขบัตร ปชช. (13 หลัก) *</label>
                   <input
                     type="text"
                     maxLength={13}
                     value={newCustCitizenId}
-                    onChange={(e) => setNewCustCitizenId(e.target.value)}
-                    placeholder="1100200345678"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-mono"
-                    required={customerMode === 'new'}
+                    onChange={(e) => setNewCustCitizenId(e.target.value.replace(/\D/g, ''))}
+                    placeholder="1930200876541"
+                    className="w-full font-mono bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900"
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-600 mb-1">เบอร์โทรศัพท์</label>
+                  <label className="block text-slate-700 font-semibold mb-1">คำนำหน้า</label>
+                  <select
+                    value={newCustPrefix}
+                    onChange={(e) => setNewCustPrefix(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900"
+                  >
+                    <option value="นาย">นาย</option>
+                    <option value="นาง">นาง</option>
+                    <option value="นางสาว">นางสาว</option>
+                    <option value="อาจารย์">อาจารย์</option>
+                    <option value="คุณ">คุณ</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">เบอร์โทรศัพท์ *</label>
                   <input
-                    type="text"
-                    maxLength={10}
+                    type="tel"
                     value={newCustPhone}
                     onChange={(e) => setNewCustPhone(e.target.value)}
                     placeholder="0812345678"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-mono"
+                    className="w-full font-mono bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900"
+                    required
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-600 mb-1">Line ID</label>
+                  <label className="block text-slate-700 font-semibold mb-1">ชื่อจริง *</label>
+                  <input
+                    type="text"
+                    value={newCustFirstName}
+                    onChange={(e) => setNewCustFirstName(e.target.value)}
+                    placeholder="ชื่อลูกค้า"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">นามสกุล *</label>
+                  <input
+                    type="text"
+                    value={newCustLastName}
+                    onChange={(e) => setNewCustLastName(e.target.value)}
+                    placeholder="นามสกุล"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">Line ID</label>
                   <input
                     type="text"
                     value={newCustLineId}
                     onChange={(e) => setNewCustLineId(e.target.value)}
                     placeholder="ไอดีไลน์ (ถ้ามี)"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900"
                   />
                 </div>
-                <div className="sm:col-span-2">
-                  <label className="block text-slate-600 mb-1">ที่อยู่ตามบัตร / ที่ติดต่อได้</label>
+                <div className="sm:col-span-3">
+                  <label className="block text-slate-700 font-semibold mb-1">ที่อยู่ตามบัตรประชาชน</label>
                   <input
                     type="text"
                     value={newCustAddress}
                     onChange={(e) => setNewCustAddress(e.target.value)}
-                    placeholder="เลขที่ หมู่บ้าน ตำบล อำเภอ จังหวัด"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white"
+                    placeholder="ที่อยู่ลูกค้า"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900"
                   />
                 </div>
               </div>
             )}
           </div>
 
-          {/* SECTION 2: ITEM & ASSET DETAILS */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                <h3 className="font-semibold text-slate-900 text-sm">ข้อมูลทรัพย์สินขายฝาก / จำนำ</h3>
+          {/* SECTION 2: ITEM & ASSET DETAILS (COMPUTER, LAPTOP, PRINTER, PHONE) */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2.5">
+              <div className="flex items-center gap-2 font-bold text-slate-900 text-xs">
+                <Laptop className="w-4 h-4 text-amber-500" />
+                <span>หมวดหมู่สินค้าไอทีที่นำมาขายฝาก</span>
               </div>
-              <div className="flex items-center p-1 bg-slate-200 rounded-lg text-xs overflow-x-auto">
+
+              {/* Segmented Category Buttons */}
+              <div className="flex items-center gap-1 bg-slate-200 p-0.5 rounded-lg text-xs overflow-x-auto scrollbar-none">
                 <button
                   type="button"
-                  onClick={() => setCategory('gold')}
-                  className={`px-3 py-1 rounded-md font-medium whitespace-nowrap transition-colors ${category === 'gold' ? 'bg-amber-500 text-white shadow-xs' : 'text-slate-700'}`}
+                  onClick={() => handleSelectCategory('notebook')}
+                  className={`px-3 py-1 rounded-md font-semibold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1 ${
+                    category === 'notebook' ? 'bg-amber-400 text-slate-950 shadow-xs' : 'text-slate-700 hover:text-slate-950'
+                  }`}
                 >
-                  ทองคำ / รูปพรรณ
+                  <Laptop className="w-3.5 h-3.5" />
+                  <span>โน็ตบุ้ค</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCategory('phone')}
-                  className={`px-3 py-1 rounded-md font-medium whitespace-nowrap transition-colors ${category === 'phone' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-700'}`}
+                  onClick={() => handleSelectCategory('computer')}
+                  className={`px-3 py-1 rounded-md font-semibold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1 ${
+                    category === 'computer' ? 'bg-indigo-600 text-white shadow-xs' : 'text-slate-700 hover:text-slate-950'
+                  }`}
                 >
-                  โทรศัพท์ / ไอที
+                  <Cpu className="w-3.5 h-3.5" />
+                  <span>คอมพิวเตอร์พีซี</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCategory('vehicle')}
-                  className={`px-3 py-1 rounded-md font-medium whitespace-nowrap transition-colors ${category === 'vehicle' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-700'}`}
+                  onClick={() => handleSelectCategory('printer')}
+                  className={`px-3 py-1 rounded-md font-semibold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1 ${
+                    category === 'printer' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-700 hover:text-slate-950'
+                  }`}
                 >
-                  ยานพาหนะ / ทะเบียน
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>เครื่องพิมพ์</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCategory('jewelry')}
-                  className={`px-3 py-1 rounded-md font-medium whitespace-nowrap transition-colors ${category === 'jewelry' ? 'bg-purple-600 text-white shadow-xs' : 'text-slate-700'}`}
+                  onClick={() => handleSelectCategory('phone')}
+                  className={`px-3 py-1 rounded-md font-semibold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1 ${
+                    category === 'phone' ? 'bg-blue-600 text-white shadow-xs' : 'text-slate-700 hover:text-slate-950'
+                  }`}
                 >
-                  เพชร / อัญมณี
+                  <Smartphone className="w-3.5 h-3.5" />
+                  <span>มือถือ/แท็บเล็ต</span>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCategory('general')}
-                  className={`px-3 py-1 rounded-md font-medium whitespace-nowrap transition-colors ${category === 'general' ? 'bg-slate-700 text-white shadow-xs' : 'text-slate-700'}`}
+                  onClick={() => handleSelectCategory('gadget_it')}
+                  className={`px-3 py-1 rounded-md font-semibold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1 ${
+                    category === 'gadget_it' ? 'bg-purple-600 text-white shadow-xs' : 'text-slate-700 hover:text-slate-950'
+                  }`}
                 >
-                  สินค้าทั่วไป
+                  <Monitor className="w-3.5 h-3.5" />
+                  <span>อุปกรณ์ไอที</span>
                 </button>
               </div>
             </div>
 
-            {/* Category Custom Fields */}
-            {category === 'gold' && (
-              <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3.5 mb-4 space-y-3 text-xs">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {/* 1. NOTEBOOK CUSTOM FIELDS */}
+            {category === 'notebook' && (
+              <div className="bg-amber-50/70 border border-amber-200 rounded-xl p-3 space-y-2.5 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div>
-                    <label className="block text-slate-600 mb-1">ประเภททอง</label>
+                    <label className="block text-slate-700 font-semibold mb-1">ยี่ห้อ (Brand)</label>
                     <select
-                      value={goldType}
+                      value={nbBrand}
                       onChange={(e) => {
-                        const val = e.target.value as any;
-                        setGoldType(val);
-                        const names: Record<string, string> = {
-                          necklace: 'สร้อยคอ',
-                          bracelet: 'สร้อยข้อมือ',
-                          ring: 'แหวน',
-                          bangle: 'กำไล',
-                          pendant: 'จี้ทอง',
-                          bar: 'ทองคำแท่ง',
-                          other: 'อื่นๆ',
-                        };
-                        setGoldTypeName(names[val] || 'ทอง');
-                        setItemName(`${names[val] || 'ทอง'} 96.5% น้ำหนัก ${goldWeightBaht} บาท`);
+                        setNbBrand(e.target.value);
+                        setItemName(`${e.target.value} ${nbModel} (${nbProcessor})`);
                       }}
-                      className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white"
+                      className="w-full bg-white border border-amber-300 rounded-lg px-2 py-1.5 text-xs"
                     >
-                      <option value="necklace">สร้อยคอ</option>
-                      <option value="bracelet">สร้อยข้อมือ</option>
-                      <option value="ring">แหวน</option>
-                      <option value="bangle">กำไล</option>
-                      <option value="pendant">จี้ทอง</option>
-                      <option value="bar">ทองคำแท่ง</option>
+                      {COMMON_NOTEBOOK_BRANDS.map(b => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
                     </select>
                   </div>
-
                   <div>
-                    <label className="block text-slate-600 mb-1">ความบริสุทธิ์</label>
-                    <select
-                      value={goldPurity}
-                      onChange={(e) => setGoldPurity(e.target.value as any)}
-                      className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white"
-                    >
-                      <option value="96.5%">96.5% (มาตรฐานทองไทย)</option>
-                      <option value="99.99%">99.99% (ทองสวิส/ฮ่องกง)</option>
-                      <option value="90%">90%</option>
-                    </select>
+                    <label className="block text-slate-700 font-semibold mb-1">รุ่น / ซีรีส์ (Model)</label>
+                    <input
+                      type="text"
+                      value={nbModel}
+                      onChange={(e) => {
+                        setNbModel(e.target.value);
+                        setItemName(`${nbBrand} ${e.target.value} (${nbProcessor})`);
+                      }}
+                      placeholder="เช่น ROG Strix G16, Vivobook 15"
+                      className="w-full bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs font-medium"
+                    />
                   </div>
-
                   <div>
-                    <label className="block text-slate-600 mb-1">น้ำหนัก (บาททอง)</label>
-                    <div className="flex gap-1 items-center">
-                      <input
-                        type="number"
-                        step="0.05"
-                        value={goldWeightBaht}
-                        onChange={(e) => handleGoldWeightSelect(parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white font-mono"
-                      />
+                    <label className="block text-slate-700 font-semibold mb-1">หมายเลขเครื่อง (S/N)</label>
+                    <input
+                      type="text"
+                      value={nbSerial}
+                      onChange={(e) => setNbSerial(e.target.value)}
+                      placeholder="เช่น R90Z8912A004"
+                      className="w-full font-mono uppercase font-bold bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs text-amber-950"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">หน่วยความจำ (RAM)</label>
+                    <div className="flex gap-1">
+                      {[8, 16, 32, 64].map(r => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => setNbRam(r)}
+                          className={`flex-1 py-1 rounded text-xs font-mono font-bold ${
+                            nbRam === r ? 'bg-amber-500 text-white' : 'bg-white border border-amber-200 text-slate-700'
+                          }`}
+                        >
+                          {r}G
+                        </button>
+                      ))}
                     </div>
                   </div>
+                </div>
 
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <div>
-                    <label className="block text-slate-600 mb-1">น้ำหนัก (กรัม)</label>
+                    <label className="block text-slate-700 font-semibold mb-1">ซีพียู (Processor)</label>
                     <input
-                      type="number"
-                      step="0.001"
-                      value={goldWeightGram}
-                      onChange={(e) => setGoldWeightGram(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white font-mono"
+                      type="text"
+                      value={nbProcessor}
+                      onChange={(e) => setNbProcessor(e.target.value)}
+                      placeholder="Core i7-13650HX"
+                      className="w-full bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">ความจุ (SSD/Storage)</label>
+                    <input
+                      type="text"
+                      value={nbStorage}
+                      onChange={(e) => setNbStorage(e.target.value)}
+                      placeholder="SSD 1TB M.2 NVMe"
+                      className="w-full bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">การ์ดจอ (GPU)</label>
+                    <input
+                      type="text"
+                      value={nbGpu}
+                      onChange={(e) => setNbGpu(e.target.value)}
+                      placeholder="RTX 4060 8GB"
+                      className="w-full bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">สถานะแบตเตอรี่</label>
+                    <select
+                      value={nbBattery}
+                      onChange={(e) => setNbBattery(e.target.value)}
+                      className="w-full bg-white border border-amber-300 rounded-lg px-2 py-1.5 text-xs"
+                    >
+                      <option value="เก็บไฟดีมาก (> 3 ชม.)">เก็บไฟดีมาก (&gt; 3 ชม.)</option>
+                      <option value="เก็บไฟปกติ (1 - 2 ชม.)">เก็บไฟปกติ (1 - 2 ชม.)</option>
+                      <option value="แบตเตอรี่เสื่อม/เสียบสายตลอด">แบตเตอรี่เสื่อม/เสียบสาย</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4 pt-1 border-t border-amber-200">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={nbHasCharger}
+                      onChange={(e) => setNbHasCharger(e.target.checked)}
+                      className="rounded text-amber-500"
+                    />
+                    <span className="text-slate-800 font-medium">มีสายชาร์จ / อะแดปเตอร์แท้</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={nbHasBag}
+                      onChange={(e) => setNbHasBag(e.target.checked)}
+                      className="rounded text-amber-500"
+                    />
+                    <span className="text-slate-800 font-medium">มีกระเป๋าโน็ตบุ้ค</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={nbIcloudStatus === 'unlocked'}
+                      onChange={(e) => setNbIcloudStatus(e.target.checked ? 'unlocked' : 'locked')}
+                      className="rounded text-amber-500"
+                    />
+                    <span className="text-emerald-800 font-bold">ปลดล็อค iCloud / Microsoft / BIOS แล้ว</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            {/* 2. COMPUTER PC CUSTOM FIELDS */}
+            {category === 'computer' && (
+              <div className="bg-indigo-50/70 border border-indigo-200 rounded-xl p-3 space-y-2.5 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">แบรนด์ / การประกอบ</label>
+                    <input
+                      type="text"
+                      value={pcBrandOrCustom}
+                      onChange={(e) => setPcBrandOrCustom(e.target.value)}
+                      placeholder="ประกอบ Custom Gaming PC หรือ Dell"
+                      className="w-full bg-white border border-indigo-300 rounded-lg px-2.5 py-1.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">เคส / โมเดล (Case Model)</label>
+                    <input
+                      type="text"
+                      value={pcModelOrCase}
+                      onChange={(e) => setPcModelOrCase(e.target.value)}
+                      placeholder="Case NZXT H5 Flow RGB สีดำ"
+                      className="w-full bg-white border border-indigo-300 rounded-lg px-2.5 py-1.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">หน่วยประมวลผล (CPU)</label>
+                    <input
+                      type="text"
+                      value={pcProcessor}
+                      onChange={(e) => setPcProcessor(e.target.value)}
+                      placeholder="Intel Core i5-13400F หรือ Ryzen 5"
+                      className="w-full bg-white border border-indigo-300 rounded-lg px-2.5 py-1.5 text-xs"
                     />
                   </div>
                 </div>
 
-                {/* Quick weight shortcuts */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-slate-500 mr-1">ปุ่มลัดน้ำหนัก:</span>
-                  {[0.25, 0.5, 1, 2, 3, 5, 10].map(b => (
-                    <button
-                      key={b}
-                      type="button"
-                      onClick={() => handleGoldWeightSelect(b)}
-                      className={`px-2 py-1 rounded border text-[11px] font-mono ${goldWeightBaht === b ? 'bg-amber-500 text-white border-amber-600 font-bold' : 'bg-white border-amber-200 text-amber-900 hover:bg-amber-100'}`}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">RAM (GB)</label>
+                    <select
+                      value={pcRam}
+                      onChange={(e) => setPcRam(Number(e.target.value))}
+                      className="w-full bg-white border border-indigo-300 rounded-lg px-2 py-1.5 text-xs font-mono font-bold"
                     >
-                      {b >= 1 ? `${b} บาท` : `${b === 0.25 ? '1 สลึง' : '2 สลึง'}`}
-                    </button>
-                  ))}
+                      <option value={8}>8 GB</option>
+                      <option value={16}>16 GB</option>
+                      <option value={32}>32 GB (16x2)</option>
+                      <option value={64}>64 GB</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">ความจุฮาร์ดดิสก์ (SSD)</label>
+                    <input
+                      type="text"
+                      value={pcStorage}
+                      onChange={(e) => setPcStorage(e.target.value)}
+                      placeholder="SSD 1TB M.2 NVMe"
+                      className="w-full bg-white border border-indigo-300 rounded-lg px-2.5 py-1.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">การ์ดจอแยก (GPU)</label>
+                    <input
+                      type="text"
+                      value={pcGpu}
+                      onChange={(e) => setPcGpu(e.target.value)}
+                      placeholder="RTX 3060 12GB หรือ Onboard"
+                      className="w-full bg-white border border-indigo-300 rounded-lg px-2.5 py-1.5 text-xs"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">จอภาพที่นำมาด้วย (Monitor)</label>
+                    <input
+                      type="text"
+                      value={pcMonitor}
+                      onChange={(e) => setPcMonitor(e.target.value)}
+                      placeholder="AOC 24&quot; 165Hz (หรือไม่มีจอ)"
+                      className="w-full bg-white border border-indigo-300 rounded-lg px-2.5 py-1.5 text-xs"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-slate-600 mb-1">สภาพและรายละเอียดลายทอง</label>
+                  <label className="block text-slate-700 font-semibold mb-1">อุปกรณ์ต่อพ่วงที่ส่งมอบด้วย</label>
                   <input
                     type="text"
-                    value={goldCondition}
-                    onChange={(e) => setGoldCondition(e.target.value)}
-                    placeholder="เช่น ลายผ่าหวาย ตราปั๊มร้านทองเยาวราช ตะขอสมบูรณ์"
-                    className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-white"
+                    value={pcAccessories}
+                    onChange={(e) => setPcAccessories(e.target.value)}
+                    placeholder="เช่น สายไฟ AC, สาย HDMI, คีย์บอร์ดเรืองแสง, เมาส์"
+                    className="w-full bg-white border border-indigo-300 rounded-lg px-2.5 py-1.5 text-xs"
                   />
                 </div>
               </div>
             )}
 
+            {/* 3. PRINTER CUSTOM FIELDS */}
+            {category === 'printer' && (
+              <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3 space-y-2.5 text-xs">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">ยี่ห้อปริ้นเตอร์ (Brand)</label>
+                    <select
+                      value={prBrand}
+                      onChange={(e) => setPrBrand(e.target.value)}
+                      className="w-full bg-white border border-emerald-300 rounded-lg px-2 py-1.5 text-xs"
+                    >
+                      {COMMON_PRINTER_BRANDS.map(b => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">รุ่นเครื่องพิมพ์ (Model)</label>
+                    <input
+                      type="text"
+                      value={prModel}
+                      onChange={(e) => {
+                        setPrModel(e.target.value);
+                        setItemName(`เครื่องพิมพ์ ${prBrand} ${e.target.value} (แท็งก์แท้ศูนย์)`);
+                      }}
+                      placeholder="EcoTank L3250 หรือ PIXMA G3010"
+                      className="w-full bg-white border border-emerald-300 rounded-lg px-2.5 py-1.5 text-xs font-medium"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">หมายเลขเครื่อง (S/N)</label>
+                    <input
+                      type="text"
+                      value={prSerial}
+                      onChange={(e) => setPrSerial(e.target.value)}
+                      placeholder="X8TY019942"
+                      className="w-full font-mono uppercase font-bold bg-white border border-emerald-300 rounded-lg px-2.5 py-1.5 text-xs text-emerald-950"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">ระบบน้ำหมึก (Ink System)</label>
+                    <select
+                      value={prInkSystem}
+                      onChange={(e) => setPrInkSystem(e.target.value as any)}
+                      className="w-full bg-white border border-emerald-300 rounded-lg px-2 py-1.5 text-xs"
+                    >
+                      <option value="genuine_tank">ระบบแท็งก์แท้ศูนย์ (EcoTank/MegaTank)</option>
+                      <option value="cartridge">ตลับหมึกแท้ (Cartridge)</option>
+                      <option value="mod_tank">แท็งก์ดัดแปลงภายนอก (Mod Tank)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-slate-700 font-semibold mb-1">สภาพหัวพิมพ์ (Print Head Test)</label>
+                    <select
+                      value={prHeadCondition}
+                      onChange={(e) => setPrHeadCondition(e.target.value as any)}
+                      className="w-full bg-white border border-emerald-300 rounded-lg px-2 py-1.5 text-xs font-semibold"
+                    >
+                      <option value="normal">หัวพิมพ์ออกครบ 100% สภาพสมบูรณ์</option>
+                      <option value="need_clean">มีเส้นบางสี ต้องทำความสะอาดหัวพิมพ์</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-4 sm:col-span-2 pt-2 sm:pt-4">
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={prHasPowerCable}
+                        onChange={(e) => setPrHasPowerCable(e.target.checked)}
+                        className="rounded text-emerald-600"
+                      />
+                      <span className="text-slate-800 font-medium">มีสายไฟ AC Power</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={prHasUsbCable}
+                        onChange={(e) => setPrHasUsbCable(e.target.checked)}
+                        className="rounded text-emerald-600"
+                      />
+                      <span className="text-slate-800 font-medium">มีสายต่อ USB เข้าคอมพิวเตอร์</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 4. PHONE CUSTOM FIELDS */}
             {category === 'phone' && (
-              <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3.5 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+              <div className="bg-blue-50/70 border border-blue-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                 <div>
-                  <label className="block text-slate-600 mb-1">ยี่ห้อ / แบรนด์</label>
+                  <label className="block text-slate-700 font-semibold mb-1">ยี่ห้อโทรศัพท์ / แท็บเล็ต</label>
                   <input
                     type="text"
                     value={phoneBrand}
                     onChange={(e) => setPhoneBrand(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-blue-300 bg-white"
+                    className="w-full bg-white border border-blue-300 rounded-lg px-2.5 py-1.5 text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-600 mb-1">รุ่นสินค้า</label>
+                  <label className="block text-slate-700 font-semibold mb-1">รุ่นสินค้า</label>
                   <input
                     type="text"
                     value={phoneModel}
@@ -644,15 +998,15 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
                       setPhoneModel(e.target.value);
                       setItemName(`${phoneBrand} ${e.target.value} ${phoneStorage}`);
                     }}
-                    className="w-full px-3 py-2 rounded-lg border border-blue-300 bg-white"
+                    className="w-full bg-white border border-blue-300 rounded-lg px-2.5 py-1.5 text-xs font-medium"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-600 mb-1">ความจุ</label>
+                  <label className="block text-slate-700 font-semibold mb-1">ความจุ</label>
                   <select
                     value={phoneStorage}
                     onChange={(e) => setPhoneStorage(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-blue-300 bg-white"
+                    className="w-full bg-white border border-blue-300 rounded-lg px-2 py-1.5 text-xs"
                   >
                     <option value="128GB">128GB</option>
                     <option value="256GB">256GB</option>
@@ -661,22 +1015,22 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-600 mb-1">หมายเลข IMEI (15 หลัก)</label>
+                  <label className="block text-slate-700 font-semibold mb-1">หมายเลข IMEI (15 หลัก)</label>
                   <input
                     type="text"
                     maxLength={15}
                     value={phoneImei}
                     onChange={(e) => setPhoneImei(e.target.value)}
                     placeholder="กด *#06# เพื่อดูเลข IMEI"
-                    className="w-full px-3 py-2 rounded-lg border border-blue-300 bg-white font-mono"
+                    className="w-full bg-white border border-blue-300 rounded-lg px-2.5 py-1.5 text-xs font-mono"
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-600 mb-1">สถานะ iCloud / บัญชี</label>
+                  <label className="block text-slate-700 font-semibold mb-1">สถานะ iCloud / บัญชี</label>
                   <select
                     value={phoneIcloudStatus}
                     onChange={(e) => setPhoneIcloudStatus(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-lg border border-blue-300 bg-white"
+                    className="w-full bg-white border border-blue-300 rounded-lg px-2 py-1.5 text-xs font-semibold"
                   >
                     <option value="signed_out">ออกจากระบบเรียบร้อย (Sign out)</option>
                     <option value="unlocked">ปลดล็อคแล้ว</option>
@@ -684,282 +1038,222 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-slate-600 mb-1">อุปกรณ์ที่นำมาด้วย</label>
+                  <label className="block text-slate-700 font-semibold mb-1">อุปกรณ์ที่นำมาด้วย</label>
                   <input
                     type="text"
                     value={phoneAccessories}
                     onChange={(e) => setPhoneAccessories(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-blue-300 bg-white"
+                    className="w-full bg-white border border-blue-300 rounded-lg px-2.5 py-1.5 text-xs"
                   />
                 </div>
               </div>
             )}
 
-            {category === 'vehicle' && (
-              <div className="bg-emerald-50/70 border border-emerald-200 rounded-xl p-3.5 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            {/* 5. GADGET / IT PARTS */}
+            {category === 'gadget_it' && (
+              <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
                 <div>
-                  <label className="block text-slate-600 mb-1">เลขทะเบียนรถ</label>
+                  <label className="block text-slate-700 font-semibold mb-1">ประเภทอุปกรณ์</label>
+                  <select
+                    value={gtType}
+                    onChange={(e) => setGtType(e.target.value as any)}
+                    className="w-full bg-white border border-purple-300 rounded-lg px-2 py-1.5 text-xs"
+                  >
+                    <option value="monitor">จอคอมพิวเตอร์ / Monitor</option>
+                    <option value="gpu_part">การ์ดจอแยก / GPU</option>
+                    <option value="tablet">แท็บเล็ตกราฟิก / iPad</option>
+                    <option value="console">เครื่องเล่นเกม Console</option>
+                    <option value="camera">กล้องดิจิทัล / อุปกรณ์ไลฟ์</option>
+                    <option value="other">อุปกรณ์ไอทีอื่นๆ</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">ยี่ห้อ / แบรนด์</label>
                   <input
                     type="text"
-                    value={licensePlate}
+                    value={gtBrand}
+                    onChange={(e) => setGtBrand(e.target.value)}
+                    className="w-full bg-white border border-purple-300 rounded-lg px-2.5 py-1.5 text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-700 font-semibold mb-1">รุ่นสินค้า (Model)</label>
+                  <input
+                    type="text"
+                    value={gtModel}
                     onChange={(e) => {
-                      setLicensePlate(e.target.value);
-                      setItemName(`${vehicleBrand} ${vehicleModel} ทะเบียน ${e.target.value} ${vehicleProvince}`);
+                      setGtModel(e.target.value);
+                      setItemName(`${gtBrand} ${e.target.value}`);
                     }}
-                    placeholder="เช่น 1กข-9999"
-                    className="w-full px-3 py-2 rounded-lg border border-emerald-300 bg-white font-mono"
+                    className="w-full bg-white border border-purple-300 rounded-lg px-2.5 py-1.5 text-xs"
                   />
                 </div>
-                <div>
-                  <label className="block text-slate-600 mb-1">จังหวัด</label>
+                <div className="sm:col-span-3">
+                  <label className="block text-slate-700 font-semibold mb-1">สรุปรายละเอียดสเปก</label>
                   <input
                     type="text"
-                    value={vehicleProvince}
-                    onChange={(e) => setVehicleProvince(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-emerald-300 bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-slate-600 mb-1">ยี่ห้อ / รุ่น</label>
-                  <input
-                    type="text"
-                    value={`${vehicleBrand} ${vehicleModel}`}
-                    onChange={(e) => setVehicleModel(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-emerald-300 bg-white"
+                    value={gtSpecs}
+                    onChange={(e) => setGtSpecs(e.target.value)}
+                    className="w-full bg-white border border-purple-300 rounded-lg px-2.5 py-1.5 text-xs"
                   />
                 </div>
               </div>
             )}
 
-            {/* General item title & description */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            {/* General item title & storage location */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-1">
               <div>
-                <label className="block text-slate-600 mb-1">ชื่อรายการทรัพย์สิน <span className="text-rose-500">*</span></label>
+                <label className="block text-slate-700 font-semibold mb-1">ชื่อรายการทรัพย์สินไอที *</label>
                 <input
                   type="text"
                   value={itemName}
                   onChange={(e) => setItemName(e.target.value)}
-                  placeholder="เช่น สร้อยคอทองคำ 96.5% น้ำหนัก 2 บาท ลายสี่เสา"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white font-medium"
+                  placeholder="เช่น Asus ROG Strix G16 Core i7-13650HX"
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-bold text-slate-900"
                   required
                 />
               </div>
               <div>
-                <label className="block text-slate-600 mb-1">สถานที่จัดเก็บในร้าน</label>
+                <label className="block text-slate-700 font-semibold mb-1">สถานที่จัดเก็บในร้าน</label>
                 <input
                   type="text"
                   value={storageLocation}
                   onChange={(e) => setStorageLocation(e.target.value)}
-                  placeholder="เช่น ตู้เซฟ A-01, กล่องล็อกเกอร์หมายเลข 5"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white"
+                  placeholder="เช่น ตู้ไอที ชั้น 2 ล็อกเกอร์ B-01"
+                  className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-800"
                 />
               </div>
             </div>
 
-            {/* Direct Camera / Photo capture & Document Scan */}
-            <div className="mt-4 pt-3 border-t border-slate-200">
+            {/* Photo upload / Capture */}
+            <div className="pt-2 border-t border-slate-200">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-slate-700">รูปภาพสินค้า / สแกนเอกสาร (สูงสุด 4 รูป)</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={addSamplePhoto}
-                    className="text-[11px] text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-medium"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    ใส่รูปตัวอย่าง
-                  </button>
-                  {!isCameraActive ? (
-                    <button
-                      type="button"
-                      onClick={startCamera}
-                      className="px-2.5 py-1 bg-slate-800 text-white rounded-lg text-xs hover:bg-slate-700 flex items-center gap-1"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      ถ่ายจากกล้อง
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={capturePhoto}
-                      className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg text-xs hover:bg-emerald-700 flex items-center gap-1"
-                    >
-                      <Camera className="w-3.5 h-3.5" />
-                      กดถ่ายภาพ (Snap)
-                    </button>
-                  )}
-                  <label className="px-2.5 py-1 bg-slate-200 text-slate-800 rounded-lg text-xs hover:bg-slate-300 cursor-pointer flex items-center gap-1">
-                    <span>อัปโหลด</span>
-                    <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
+                <span className="font-semibold text-slate-700">รูปถ่ายอุปกรณ์ไอที / หมายเลข S/N</span>
+                <div className="flex gap-2">
+                  <label className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer">
+                    <span>+ อัปโหลดรูป</span>
+                    <input type="file" accept="image/*" multiple onChange={handleFileUpload} className="hidden" />
                   </label>
                 </div>
               </div>
 
-              {isCameraActive && (
-                <div className="mb-3 relative bg-black rounded-xl overflow-hidden aspect-video max-h-48 flex items-center justify-center">
-                  <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={stopCamera}
-                    className="absolute top-2 right-2 bg-black/60 text-white p-1 rounded-full text-xs"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+              {photos.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto py-1">
+                  {photos.map((p, idx) => (
+                    <div key={idx} className="relative w-16 h-16 rounded-lg border border-slate-300 overflow-hidden shrink-0 group">
+                      <img src={p} alt="item" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setPhotos(photos.filter((_, i) => i !== idx))}
+                        className="absolute top-0.5 right-0.5 bg-rose-600 text-white rounded-full p-0.5 opacity-80 hover:opacity-100"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
-
-              {/* Photos preview strip */}
-              <div className="flex gap-2 overflow-x-auto py-1">
-                {photos.map((p, idx) => (
-                  <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-300 shrink-0 group">
-                    <img src={p} alt={`asset-${idx}`} className="w-full h-full object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setPhotos(prev => prev.filter((_, i) => i !== idx))}
-                      className="absolute top-1 right-1 bg-black/60 hover:bg-rose-600 text-white p-1 rounded-full text-[10px]"
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </div>
-                ))}
-                {photos.length === 0 && (
-                  <div className="w-full py-4 border-2 border-dashed border-slate-300 rounded-xl text-center text-xs text-slate-400">
-                    ยังไม่มีรูปภาพ (สามารถถ่ายรูปหรืออัปโหลดหลักฐานทรัพย์สินเพื่อความปลอดภัย)
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
-          {/* SECTION 3: FINANCIAL TERMS & STEPPED INTEREST */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-600"></span>
-              <h3 className="font-semibold text-slate-900 text-sm">การคำนวณเงินกู้และดอกเบี้ย</h3>
+          {/* SECTION 3: FINANCIAL & LOAN CONTRACT TERMS */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 sm:p-4 space-y-3">
+            <div className="font-bold text-slate-900 text-xs flex items-center gap-1.5 border-b border-slate-200 pb-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>เงื่อนไขทางการเงินและอัตราดอกเบี้ยขายฝาก</span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-slate-700 font-medium mb-1">
-                  ยอดเงินต้นรับจำนำ (บาท) <span className="text-rose-500">*</span>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  เงินต้นรับจำนำ / ขายฝาก (บาท) *
                 </label>
-                <input
-                  type="number"
-                  step="100"
-                  value={loanAmount}
-                  onChange={(e) => handleLoanAmountChange(parseFloat(e.target.value) || 0)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white font-mono font-bold text-base text-slate-900 focus:ring-2 focus:ring-indigo-500"
-                  required
-                />
+                <div className="relative">
+                  <span className="absolute left-2.5 top-2 text-slate-500 font-bold">฿</span>
+                  <input
+                    type="number"
+                    step={100}
+                    value={loanAmount || ''}
+                    onChange={(e) => handleLoanAmountChange(Number(e.target.value))}
+                    className="w-full pl-7 pr-3 py-1.5 text-base font-bold font-mono text-indigo-700 bg-white border border-indigo-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    required
+                  />
+                </div>
               </div>
 
               <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-slate-700 font-medium">อัตราดอกเบี้ยต่อเดือน (%)</label>
-                  <label className="flex items-center gap-1 text-[11px] text-slate-500 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isTieredRate}
-                      onChange={(e) => {
-                        setIsTieredRate(e.target.checked);
-                        if (e.target.checked) {
-                          setMonthlyInterestRate(calculateTieredInterestRate(loanAmount, settings.tiers, settings.defaultMonthlyRate));
-                        }
-                      }}
-                      className="rounded text-indigo-600"
-                    />
-                    คิดขั้นบันได
-                  </label>
-                </div>
-                <div className="relative">
+                <label className="block text-slate-700 font-semibold mb-1">
+                  อัตราดอกเบี้ย (% ต่อเดือน)
+                </label>
+                <div className="flex gap-1.5 items-center">
                   <input
                     type="number"
                     step="0.05"
                     value={monthlyInterestRate}
-                    onChange={(e) => setMonthlyInterestRate(parseFloat(e.target.value) || 0)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white font-mono font-bold text-base text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                    onChange={(e) => {
+                      setMonthlyInterestRate(parseFloat(e.target.value) || 0);
+                      setIsTieredRate(false);
+                    }}
+                    className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900 text-xs"
                   />
-                  <span className="absolute right-3.5 top-3 text-slate-400 font-medium">%</span>
+                  <span className="text-slate-500">%</span>
                 </div>
-                {isTieredRate && (
-                  <p className="text-[10px] text-indigo-600 mt-1 flex items-center gap-1">
-                    <Layers className="w-3 h-3" />
-                    คำนวณตามอัตราขั้นบันไดร้าน ({monthlyInterestRate}% / เดือน)
-                  </p>
-                )}
               </div>
 
               <div>
-                <label className="block text-slate-700 font-medium mb-1">ระยะเวลากำหนด (เดือน)</label>
+                <label className="block text-slate-700 font-semibold mb-1">
+                  ระยะเวลาสัญญา (เดือน)
+                </label>
                 <select
                   value={durationMonths}
-                  onChange={(e) => setDurationMonths(parseInt(e.target.value, 10))}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white font-medium text-slate-900 focus:ring-2 focus:ring-indigo-500"
+                  onChange={(e) => setDurationMonths(Number(e.target.value))}
+                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-900"
                 >
-                  <option value={1}>1 เดือน (30 วัน)</option>
-                  <option value={2}>2 เดือน (60 วัน)</option>
-                  <option value={3}>3 เดือน (90 วัน)</option>
-                  <option value={4}>4 เดือน (120 วัน)</option>
-                  <option value={5}>5 เดือน (150 วัน)</option>
-                  <option value={6}>6 เดือน (180 วัน)</option>
+                  <option value={1}>1 เดือน</option>
+                  <option value={2}>2 เดือน (มาตรฐาน)</option>
+                  <option value={3}>3 เดือน</option>
+                  <option value={4}>4 เดือน</option>
+                  <option value={6}>6 เดือน</option>
                 </select>
               </div>
-
-              <div>
-                <label className="block text-slate-700 font-medium mb-1">วันที่เริ่มต้นสัญญา</label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 bg-white font-mono text-slate-900 focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
             </div>
 
-            {/* Calculations highlight banner */}
-            <div className="mt-4 bg-slate-900 text-white rounded-xl p-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-              <div>
-                <div className="text-slate-400">เงินต้นที่จ่ายออก:</div>
-                <div className="text-xl font-bold font-mono text-white">{formatCurrency(loanAmount)}</div>
+            {/* Interest Calculation Strip */}
+            <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row justify-between items-center gap-1.5 text-xs">
+              <div className="text-emerald-900">
+                <span>ดอกเบี้ยต่องวด ({durationMonths} เดือน): </span>
+                <strong className="font-mono text-sm text-emerald-800">
+                  ฿{Math.round(loanAmount * (monthlyInterestRate / 100) * durationMonths).toLocaleString()} บาท
+                </strong>
+                <span className="text-[11px] text-emerald-700 ml-1.5">
+                  (เดือนละ ฿{Math.round(loanAmount * (monthlyInterestRate / 100)).toLocaleString()})
+                </span>
               </div>
-              <div>
-                <div className="text-slate-400">ดอกเบี้ยรับต่อเดือน:</div>
-                <div className="text-xl font-bold font-mono text-amber-400">{formatCurrency(monthlyInterest)}</div>
-                <div className="text-[10px] text-slate-400 mt-0.5">รวม {durationMonths} เดือน = {formatCurrency(monthlyInterest * durationMonths)}</div>
-              </div>
-              <div>
-                <div className="text-slate-400">วันครบกำหนดไถ่ถอน:</div>
-                <div className="text-base font-bold text-emerald-400">{formatThaiDate(dueDate, true)}</div>
-                <div className="text-[10px] text-slate-400 mt-0.5">ระยะผ่อนผัน +{settings.gracePeriodDays} วันก่อนยึดหลุด</div>
+              <div className="text-slate-600 font-mono text-[11px]">
+                ครบกำหนดไถ่ถอน: <strong className="text-slate-900">{formatThaiDate(dueDate)}</strong>
               </div>
             </div>
           </div>
 
-          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2.5 text-xs text-amber-800">
-            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <strong>ระบบล็อคสัญญาอัตโนมัติ:</strong> เมื่อกดบันทึก ข้อมูลสาระสำคัญ (เงินต้น, อัตราดอกเบี้ย, รายละเอียดทรัพย์สิน) จะถูกล็อคทันทีเพื่อป้องกันการทุจริต หากจำเป็นต้องแก้ไขในภายหลัง จะต้องได้รับการอนุมัติด้วยรหัส PIN ของผู้จัดการหรือเจ้าของร้านเท่านั้น
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex items-center justify-end gap-3 pt-2">
+          {/* Modal Actions Footer */}
+          <div className="flex items-center justify-between pt-2 border-t border-slate-200">
             <button
               type="button"
-              onClick={() => { stopCamera(); onClose(); }}
-              className="px-5 py-2.5 text-sm font-medium text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors"
+              onClick={onClose}
+              className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-xs font-semibold cursor-pointer"
             >
               ยกเลิก
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md transition-colors flex items-center gap-2"
+              className="px-5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
             >
-              <Check className="w-4 h-4" />
-              บันทึกสัญญาและพิมพ์ตั๋ว
+              <Check className="w-4 h-4 stroke-[2.5]" />
+              <span>บันทึกเปิดสัญญาขายฝากไอที</span>
             </button>
           </div>
         </form>
+
       </div>
     </div>
   );

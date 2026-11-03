@@ -1,4 +1,4 @@
-export type ItemCategory = 'gold' | 'phone' | 'vehicle' | 'jewelry' | 'general';
+export type ItemCategory = 'notebook' | 'computer' | 'printer' | 'phone' | 'gadget_it' | 'general';
 
 export type ContractStatus = 'active' | 'due_soon' | 'overdue' | 'redeemed' | 'forfeited';
 
@@ -20,7 +20,7 @@ export interface InterestTier {
 export interface Customer {
   id: string;
   citizenId: string; // 13 digits
-  prefix: string; // นาย / นาง / นางสาว
+  prefix: string; // นาย / นาง / นางสาว / อาจารย์ / คุณ
   firstName: string;
   lastName: string;
   phone: string;
@@ -32,13 +32,42 @@ export interface Customer {
   createdAt: string;
 }
 
-export interface GoldDetails {
-  goldType: 'necklace' | 'bracelet' | 'ring' | 'bangle' | 'pendant' | 'bar' | 'other';
-  goldTypeName: string;
-  purity: '96.5%' | '99.99%' | '90%' | 'other';
-  weightBaht: number; // e.g. 1, 2, 0.5
-  weightGram: number; // e.g. 15.244
-  condition: string;
+export interface NotebookItemDetails {
+  brand: string;
+  model: string;
+  serialNumber: string;
+  processor: string; // เช่น Intel Core i7-13650HX, AMD Ryzen 7 5800H, Apple M3
+  ramGb: number | string; // เช่น 8, 16, 32 GB
+  storage: string; // เช่น SSD 512GB NVMe, 1TB
+  gpu?: string; // เช่น NVIDIA RTX 4060, Iris Xe, Onboard
+  screenSize?: string; // เช่น 15.6" 144Hz, 14" OLED
+  batteryHealth?: string; // เช่น เก็บไฟดี > 2 ชม., พอใช้, เสื่อม
+  hasCharger: boolean;
+  hasBag: boolean;
+  icloudStatus?: 'signed_out' | 'locked' | 'unlocked';
+}
+
+export interface ComputerItemDetails {
+  brandOrCustom: string; // เช่น แบรนด์ประกอบ (Custom DIY), Dell, HP, Lenovo
+  modelOrCase: string; // เช่น Case NZXT H5 Flow, Dell OptiPlex
+  processor: string; // เช่น Intel Core i5-13400F, AMD Ryzen 5 5600X
+  ramGb: number | string; // เช่น 16, 32 GB DDR4/DDR5
+  storage: string; // เช่น SSD 1TB M.2 NVMe + HDD 2TB
+  gpu?: string; // เช่น NVIDIA GeForce RTX 3060 12GB
+  powerSupply?: string; // เช่น 650W 80+ Bronze
+  monitor?: string; // เช่น จอ AOC 24" 165Hz IPS
+  accessories: string[]; // เช่น เมาส์, คีย์บอร์ด, สายไฟ AC, สาย HDMI
+}
+
+export interface PrinterItemDetails {
+  brand: 'Epson' | 'Canon' | 'Brother' | 'HP' | string;
+  model: string; // เช่น EcoTank L3250, L4260, PIXMA G3010, DCP-T420W
+  serialNumber: string;
+  printerType: 'ink_tank' | 'laser' | 'all_in_one' | 'dot_matrix' | 'other';
+  inkSystem: 'genuine_tank' | 'cartridge' | 'mod_tank'; // ระบบแท็งก์แท้ศูนย์ / ตลับหมึก
+  headCondition: 'normal' | 'need_clean' | 'clogged_minor'; // สภาพหัวพิมพ์ ออกครบ 100% / มีเส้น
+  hasPowerCable: boolean;
+  hasUsbCable: boolean;
 }
 
 export interface PhoneDetails {
@@ -52,16 +81,13 @@ export interface PhoneDetails {
   passcode?: string;
 }
 
-export interface VehicleDetails {
-  vehicleType: 'motorcycle' | 'car' | 'pickup' | 'other';
-  licensePlate: string;
-  province: string;
+export interface ItGadgetDetails {
+  gadgetType: 'tablet' | 'monitor' | 'camera' | 'gpu_part' | 'console' | 'other';
   brand: string;
   model: string;
-  year?: string;
-  chassisNumber?: string;
-  hasBook: boolean;
-  taxExpiryDate?: string;
+  serialNumber?: string;
+  specsSummary: string; // สเปกย่อ
+  accessories: string[];
 }
 
 export interface PawnItem {
@@ -71,9 +97,11 @@ export interface PawnItem {
   description: string;
   estimatedValue: number; // ราคาประเมิน
   photos: string[]; // URLs or base64 data URLs
-  gold?: GoldDetails;
+  notebook?: NotebookItemDetails;
+  computer?: ComputerItemDetails;
+  printer?: PrinterItemDetails;
   phone?: PhoneDetails;
-  vehicle?: VehicleDetails;
+  itGadget?: ItGadgetDetails;
 }
 
 export interface InterestPayment {
@@ -107,7 +135,7 @@ export interface PawnContract {
   customerId: string;
   customerSnapshot: Customer;
   item: PawnItem;
-  loanAmount: number; // เงินต้นรับจำนำ
+  loanAmount: number; // เงินต้นรับจำนำ/ขายฝาก
   monthlyInterestRate: number; // อัตราดอกเบี้ยต่อเดือน เช่น 1.75%
   isTieredRate: boolean;
   startDate: string; // ISO date
@@ -129,7 +157,7 @@ export interface PawnContract {
   };
   forfeitedDate?: string;
   amendmentLogs: ContractAmendmentLog[];
-  storageLocation?: string; // ที่จัดเก็บ เช่น ตู้เซฟ A-03, ชั้น 2 ล็อก 12
+  storageLocation?: string; // ที่จัดเก็บ เช่น ตู้ไอที ชั้น 2 ล็อกเกอร์ B-03, โซนคอมพิวเตอร์
   note?: string;
   createdAt: string;
   createdBy: string;
@@ -155,6 +183,6 @@ export interface ShopSettings {
   enableSteppedTiers: boolean;
   tiers: InterestTier[];
   lateFeePerDay: number;
-  gracePeriodDays: number; // ระยะเวลาผ่อนผันก่อนยึดหลุด เช่น 7 วัน
+  gracePeriodDays: number; // ระยะเวลาผ่อนผันก่อนยึดหลุด เช่น 7-15 วัน
   termsAndConditions: string;
 }

@@ -15,10 +15,11 @@ import {
   ChevronLeft,
   Eye,
   Plus,
-  Coins,
+  Laptop,
+  Monitor,
+  Cpu,
   Smartphone,
-  Car,
-  Gem,
+  HardDrive,
   Package,
   ShieldAlert,
   FileText,
@@ -74,7 +75,7 @@ export const Workstation: React.FC<WorkstationProps> = ({
 
   // Filtered contracts
   const filteredContracts = contracts.filter(c => {
-    // Search query matches: Contract No, Citizen ID, First Name, Last Name, Phone, Item Name, IMEI, Car plate
+    // Search query matches: Contract No, Citizen ID, First Name, Last Name, Phone, Item Name, IMEI, Serial No
     const q = searchQuery.toLowerCase().trim();
     if (q) {
       const matchNumber = c.contractNumber.toLowerCase().includes(q);
@@ -83,9 +84,14 @@ export const Workstation: React.FC<WorkstationProps> = ({
       const matchPhone = c.customerSnapshot.phone.includes(q);
       const matchItem = c.item.name.toLowerCase().includes(q);
       const matchImei = c.item.phone?.imei?.includes(q) || false;
-      const matchPlate = c.item.vehicle?.licensePlate?.toLowerCase().includes(q) || false;
+      const matchSn = 
+        c.item.notebook?.serialNumber?.toLowerCase().includes(q) ||
+        c.item.printer?.serialNumber?.toLowerCase().includes(q) ||
+        c.item.phone?.serialNumber?.toLowerCase().includes(q) ||
+        c.item.itGadget?.serialNumber?.toLowerCase().includes(q) ||
+        false;
 
-      if (!matchNumber && !matchCitizen && !matchName && !matchPhone && !matchItem && !matchImei && !matchPlate) {
+      if (!matchNumber && !matchCitizen && !matchName && !matchPhone && !matchItem && !matchImei && !matchSn) {
         return false;
       }
     }
@@ -117,10 +123,11 @@ export const Workstation: React.FC<WorkstationProps> = ({
 
   const getItemCategoryIcon = (cat: ItemCategory) => {
     switch (cat) {
-      case 'gold': return <Coins className="w-4 h-4 text-amber-500" />;
+      case 'notebook': return <Laptop className="w-4 h-4 text-amber-500" />;
+      case 'computer': return <Cpu className="w-4 h-4 text-indigo-500" />;
+      case 'printer': return <Printer className="w-4 h-4 text-emerald-500" />;
       case 'phone': return <Smartphone className="w-4 h-4 text-blue-500" />;
-      case 'vehicle': return <Car className="w-4 h-4 text-emerald-500" />;
-      case 'jewelry': return <Gem className="w-4 h-4 text-purple-500" />;
+      case 'gadget_it': return <Monitor className="w-4 h-4 text-purple-500" />;
       default: return <Package className="w-4 h-4 text-slate-500" />;
     }
   };
@@ -254,18 +261,19 @@ export const Workstation: React.FC<WorkstationProps> = ({
 
         {/* Category selector */}
         <div className="flex items-center gap-1.5 shrink-0 w-full sm:w-auto justify-between sm:justify-start">
-          <span className="text-slate-400 text-xs">หมวด:</span>
+          <span className="text-slate-400 text-xs">หมวดไอที:</span>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="flex-1 sm:flex-initial px-2.5 py-1 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs focus:outline-none"
           >
-            <option value="all">ทุกหมวดหมู่</option>
-            <option value="gold">ทองคำ/รูปพรรณ</option>
-            <option value="phone">โทรศัพท์/ไอที</option>
-            <option value="vehicle">ยานพาหนะ</option>
-            <option value="jewelry">เพชร/อัญมณี</option>
-            <option value="general">สินค้าทั่วไป</option>
+            <option value="all">ทุกหมวดไอที</option>
+            <option value="notebook">โน็ตบุ้ค / แล็ปท็อป</option>
+            <option value="computer">คอมพิวเตอร์พีซี / All-in-One</option>
+            <option value="printer">เครื่องพิมพ์ / ปริ้นเตอร์</option>
+            <option value="phone">สมาร์ทโฟน / แท็บเล็ต</option>
+            <option value="gadget_it">จอภาพ / อะไหล่ไอที</option>
+            <option value="general">สินค้าไอทีอื่นๆ</option>
           </select>
         </div>
       </div>
@@ -429,19 +437,29 @@ export const Workstation: React.FC<WorkstationProps> = ({
                           <div className="text-[10px] text-slate-400 font-mono">{formatCitizenId(c.customerSnapshot.citizenId)}</div>
                         </td>
 
-                        <td className="py-2.5 px-3 max-w-[200px]">
+                        <td className="py-2.5 px-3 max-w-[220px]">
                           <div className="flex items-center gap-1.5 truncate">
                             {getItemCategoryIcon(c.item.category)}
-                            <span className="truncate text-slate-800">{c.item.name}</span>
+                            <span className="truncate text-slate-800 font-medium">{c.item.name}</span>
                           </div>
-                          {c.item.gold && (
-                            <div className="text-[10px] text-amber-700 font-mono">
-                              ทอง {c.item.gold.purity} | {c.item.gold.weightBaht} บาท ({c.item.gold.weightGram}g)
+                          {c.item.notebook && (
+                            <div className="text-[10px] text-amber-700 font-mono truncate">
+                              S/N: {c.item.notebook.serialNumber} | RAM {c.item.notebook.ramGb}GB | {c.item.notebook.storage}
+                            </div>
+                          )}
+                          {c.item.computer && (
+                            <div className="text-[10px] text-indigo-700 font-mono truncate">
+                              {c.item.computer.processor} | RAM {c.item.computer.ramGb}GB | {c.item.computer.storage}
+                            </div>
+                          )}
+                          {c.item.printer && (
+                            <div className="text-[10px] text-emerald-700 font-mono truncate">
+                              S/N: {c.item.printer.serialNumber} | หัวพิมพ์: {c.item.printer.headCondition === 'normal' ? 'ปกติ' : 'ต้องล้าง'}
                             </div>
                           )}
                           {c.item.phone && (
                             <div className="text-[10px] text-slate-500 font-mono truncate">
-                              IMEI: {c.item.phone.imei}
+                              IMEI: {c.item.phone.imei} ({c.item.phone.storageGb})
                             </div>
                           )}
                         </td>
@@ -616,29 +634,93 @@ export const Workstation: React.FC<WorkstationProps> = ({
                     {selectedContract.item.description}
                   </div>
 
-                  {/* Gold Specifics */}
-                  {selectedContract.item.gold && (
-                    <div className="bg-amber-50/80 border border-amber-200 rounded-lg p-2.5 text-amber-950 space-y-1">
-                      <div className="font-semibold">ทองคำ {selectedContract.item.gold.purity} ({selectedContract.item.gold.goldTypeName})</div>
-                      <div className="flex justify-between">
-                        <span>น้ำหนักทอง:</span>
-                        <strong className="font-mono">{selectedContract.item.gold.weightBaht} บาท ({selectedContract.item.gold.weightGram} กรัม)</strong>
+                  {/* Notebook Specifics */}
+                  {selectedContract.item.notebook && (
+                    <div className="bg-amber-50/80 border border-amber-200 rounded-lg p-2.5 text-amber-950 space-y-1.5 text-xs">
+                      <div className="font-bold flex items-center justify-between">
+                        <span>{selectedContract.item.notebook.brand} {selectedContract.item.notebook.model}</span>
+                        <span className="font-mono text-[10px] bg-amber-200/80 px-1.5 py-0.5 rounded">S/N: {selectedContract.item.notebook.serialNumber}</span>
                       </div>
-                      <div className="text-[11px] text-slate-600">
-                        สภาพ: {selectedContract.item.gold.condition}
+                      <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-700">
+                        <div>ซีพียู: <strong className="text-slate-900">{selectedContract.item.notebook.processor}</strong></div>
+                        <div>แรม: <strong className="text-slate-900">{selectedContract.item.notebook.ramGb} GB</strong></div>
+                        <div>ความจุ: <strong className="text-slate-900">{selectedContract.item.notebook.storage}</strong></div>
+                        <div>การ์ดจอ: <strong className="text-slate-900">{selectedContract.item.notebook.gpu || 'Onboard'}</strong></div>
+                      </div>
+                      <div className="text-[11px] text-slate-600 flex items-center gap-2 pt-1 border-t border-amber-200/60">
+                        <span>สถานะแบต: {selectedContract.item.notebook.batteryHealth || 'ปกติ'}</span>
+                        <span>·</span>
+                        <span>{selectedContract.item.notebook.hasCharger ? '✓ สายชาร์จแท้' : 'ไม่มีสายชาร์จ'}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Computer PC Specifics */}
+                  {selectedContract.item.computer && (
+                    <div className="bg-indigo-50/80 border border-indigo-200 rounded-lg p-2.5 text-indigo-950 space-y-1.5 text-xs">
+                      <div className="font-bold flex items-center justify-between">
+                        <span>{selectedContract.item.computer.brandOrCustom}</span>
+                        <span className="text-[10px] text-indigo-700">{selectedContract.item.computer.modelOrCase}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-700">
+                        <div>ซีพียู: <strong className="text-slate-900">{selectedContract.item.computer.processor}</strong></div>
+                        <div>แรม: <strong className="text-slate-900">{selectedContract.item.computer.ramGb} GB</strong></div>
+                        <div>ความจุ: <strong className="text-slate-900">{selectedContract.item.computer.storage}</strong></div>
+                        <div>การ์ดจอ: <strong className="text-slate-900">{selectedContract.item.computer.gpu || 'Onboard'}</strong></div>
+                      </div>
+                      {selectedContract.item.computer.monitor && (
+                        <div className="text-[11px] text-indigo-900 font-medium">
+                          จอภาพ: {selectedContract.item.computer.monitor}
+                        </div>
+                      )}
+                      {selectedContract.item.computer.accessories.length > 0 && (
+                        <div className="text-[11px] text-slate-600">
+                          อุปกรณ์: {selectedContract.item.computer.accessories.join(', ')}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Printer Specifics */}
+                  {selectedContract.item.printer && (
+                    <div className="bg-emerald-50/80 border border-emerald-200 rounded-lg p-2.5 text-emerald-950 space-y-1.5 text-xs">
+                      <div className="font-bold flex items-center justify-between">
+                        <span>{selectedContract.item.printer.brand} {selectedContract.item.printer.model}</span>
+                        <span className="font-mono text-[10px] bg-emerald-200/80 px-1.5 py-0.5 rounded">S/N: {selectedContract.item.printer.serialNumber}</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1 text-[11px] text-slate-700">
+                        <div>ระบบหมึก: <strong>{selectedContract.item.printer.inkSystem === 'genuine_tank' ? 'แท็งก์แท้ศูนย์' : 'ตลับหมึก'}</strong></div>
+                        <div>สภาพหัวพิมพ์: <strong className="text-emerald-800">{selectedContract.item.printer.headCondition === 'normal' ? 'ออกครบ 100%' : 'ต้องล้างทำความสะอาด'}</strong></div>
+                      </div>
+                      <div className="text-[11px] text-slate-600 flex items-center gap-2 pt-1 border-t border-emerald-200/60">
+                        <span>{selectedContract.item.printer.hasPowerCable ? '✓ สายไฟ AC' : 'ไม่มีสายไฟ'}</span>
+                        <span>·</span>
+                        <span>{selectedContract.item.printer.hasUsbCable ? '✓ สายต่อ USB' : 'ไม่มีสาย USB'}</span>
                       </div>
                     </div>
                   )}
 
                   {/* Phone Specifics */}
                   {selectedContract.item.phone && (
-                    <div className="bg-blue-50/80 border border-blue-200 rounded-lg p-2.5 text-blue-950 space-y-1 font-mono">
+                    <div className="bg-blue-50/80 border border-blue-200 rounded-lg p-2.5 text-blue-950 space-y-1 font-mono text-xs">
+                      <div className="font-sans font-bold text-slate-900">{selectedContract.item.phone.brand} {selectedContract.item.phone.model}</div>
                       <div>IMEI: <strong>{selectedContract.item.phone.imei}</strong></div>
                       <div>ความจุ: {selectedContract.item.phone.storageGb} (iCloud: {selectedContract.item.phone.icloudStatus})</div>
                       {selectedContract.item.phone.accessories.length > 0 && (
                         <div className="text-[11px] text-slate-600 font-sans">
                           อุปกรณ์: {selectedContract.item.phone.accessories.join(', ')}
                         </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* IT Gadget Specifics */}
+                  {selectedContract.item.itGadget && (
+                    <div className="bg-purple-50/80 border border-purple-200 rounded-lg p-2.5 text-purple-950 space-y-1 text-xs">
+                      <div className="font-bold">{selectedContract.item.itGadget.brand} {selectedContract.item.itGadget.model}</div>
+                      <div className="text-[11px] text-slate-700">{selectedContract.item.itGadget.specsSummary}</div>
+                      {selectedContract.item.itGadget.serialNumber && (
+                        <div className="font-mono text-[10px] text-slate-500">S/N: {selectedContract.item.itGadget.serialNumber}</div>
                       )}
                     </div>
                   )}

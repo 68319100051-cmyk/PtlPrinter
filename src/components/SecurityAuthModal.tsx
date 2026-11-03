@@ -146,7 +146,7 @@ export const SecurityAuthModal: React.FC<SecurityAuthModalProps> = ({
               rows={2}
               value={reason}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="เช่น ลูกค้านำหลักฐานมาเปลี่ยนน้ำหนักทอง, แก้ไขข้อมูลเลขบัตรประชาชนที่พิมพ์ผิด"
+              placeholder="เช่น ลูกค้านำหลักฐานมาแก้ไข Serial Number/สเปกเครื่อง, แก้ไขข้อมูลเลขบัตรประชาชนที่พิมพ์ผิด"
               className="w-full px-3.5 py-2 rounded-xl border border-slate-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
               required
             />

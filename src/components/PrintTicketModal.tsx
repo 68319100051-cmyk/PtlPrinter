@@ -180,23 +180,42 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                 <div className="p-3 text-xs space-y-1.5">
                   <div className="font-semibold text-sm text-slate-900">{contract.item.name}</div>
                   <div className="text-slate-700">{contract.item.description}</div>
-                  {contract.item.gold && (
-                    <div className="grid grid-cols-3 gap-2 bg-amber-50 p-2 rounded border border-amber-200 font-medium text-amber-950 mt-2">
-                      <div>ประเภททอง: {contract.item.gold.goldTypeName} ({contract.item.gold.purity})</div>
-                      <div>น้ำหนัก: {contract.item.gold.weightBaht} บาท ({contract.item.gold.weightGram} กรัม)</div>
-                      <div>สภาพ: {contract.item.gold.condition || 'สมบูรณ์'}</div>
+                  {contract.item.notebook && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-indigo-50 p-2.5 rounded border border-indigo-200 font-medium text-indigo-950 mt-2 text-[11px]">
+                      <div><strong>S/N:</strong> {contract.item.notebook.serialNumber}</div>
+                      <div><strong>CPU:</strong> {contract.item.notebook.processor}</div>
+                      <div><strong>RAM/SSD:</strong> {contract.item.notebook.ramGb}GB / {contract.item.notebook.storage}</div>
+                      <div><strong>อุปกรณ์:</strong> {contract.item.notebook.hasCharger ? 'มีสายชาร์จแท้' : 'ไม่มีสายชาร์จ'} {contract.item.notebook.hasBag ? '+ กระเป๋า' : ''}</div>
+                    </div>
+                  )}
+                  {contract.item.computer && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-cyan-50 p-2.5 rounded border border-cyan-200 font-medium text-cyan-950 mt-2 text-[11px]">
+                      <div><strong>รุ่น/เคส:</strong> {contract.item.computer.brandOrCustom} {contract.item.computer.modelOrCase}</div>
+                      <div><strong>CPU:</strong> {contract.item.computer.processor}</div>
+                      <div><strong>RAM/SSD:</strong> {contract.item.computer.ramGb}GB / {contract.item.computer.storage}</div>
+                      <div><strong>การ์ดจอ:</strong> {contract.item.computer.gpu || 'ออนบอร์ด'}</div>
+                    </div>
+                  )}
+                  {contract.item.printer && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-emerald-50 p-2.5 rounded border border-emerald-200 font-medium text-emerald-950 mt-2 text-[11px]">
+                      <div><strong>S/N:</strong> {contract.item.printer.serialNumber}</div>
+                      <div><strong>ยี่ห้อ/รุ่น:</strong> {contract.item.printer.brand} {contract.item.printer.model}</div>
+                      <div><strong>ระบบหมึก:</strong> {contract.item.printer.inkSystem === 'genuine_tank' ? 'แท็งก์แท้โรงงาน' : contract.item.printer.inkSystem === 'mod_tank' ? 'แท็งก์ดัดแปลง' : 'ตลับหมึก'}</div>
+                      <div><strong>หัวพิมพ์:</strong> {contract.item.printer.headCondition === 'normal' ? 'ออกครบ 100%' : 'มีเส้น/ต้องล้าง'}</div>
                     </div>
                   )}
                   {contract.item.phone && (
-                    <div className="grid grid-cols-2 gap-2 bg-blue-50 p-2 rounded border border-blue-200 text-blue-950 mt-2">
-                      <div>IMEI: {contract.item.phone.imei}</div>
-                      <div>ความจุ: {contract.item.phone.storageGb} (iCloud: {contract.item.phone.icloudStatus})</div>
+                    <div className="grid grid-cols-3 gap-2 bg-blue-50 p-2.5 rounded border border-blue-200 text-blue-950 mt-2 text-[11px]">
+                      <div><strong>IMEI / S/N:</strong> {contract.item.phone.imei}</div>
+                      <div><strong>ความจุ:</strong> {contract.item.phone.storageGb}</div>
+                      <div><strong>สถานะ iCloud/บัญชี:</strong> {contract.item.phone.icloudStatus === 'unlocked' || contract.item.phone.icloudStatus === 'signed_out' ? 'ปลดล็อคเรียบร้อย' : 'ติดรหัส'}</div>
                     </div>
                   )}
-                  {contract.item.vehicle && (
-                    <div className="grid grid-cols-2 gap-2 bg-emerald-50 p-2 rounded border border-emerald-200 text-emerald-950 mt-2">
-                      <div>ทะเบียน: {contract.item.vehicle.licensePlate} {contract.item.vehicle.province}</div>
-                      <div>เลขตัวถัง: {contract.item.vehicle.chassisNumber || '-'}</div>
+                  {contract.item.itGadget && (
+                    <div className="grid grid-cols-3 gap-2 bg-purple-50 p-2.5 rounded border border-purple-200 text-purple-950 mt-2 text-[11px]">
+                      <div><strong>S/N:</strong> {contract.item.itGadget.serialNumber}</div>
+                      <div><strong>ยี่ห้อ/รุ่น:</strong> {contract.item.itGadget.brand} {contract.item.itGadget.model}</div>
+                      <div><strong>อุปกรณ์เสริม:</strong> {contract.item.itGadget.accessories || 'ตัวเครื่อง'}</div>
                     </div>
                   )}
                 </div>
@@ -274,16 +293,26 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
               <div className="py-2 border-b border-dashed border-slate-300">
                 <div className="font-bold mb-1">รายการทรัพย์สิน:</div>
                 <div className="font-sans font-medium text-xs">{contract.item.name}</div>
-                {contract.item.gold && (
-                  <div className="text-[10px] text-slate-600">
-                    ทอง {contract.item.gold.purity} | น้ำหนัก {contract.item.gold.weightBaht} บาท ({contract.item.gold.weightGram}g)
+                {contract.item.notebook && (
+                  <div className="text-[10px] text-slate-700">
+                    S/N: {contract.item.notebook.serialNumber} | CPU: {contract.item.notebook.processor} | RAM {contract.item.notebook.ramGb}GB | {contract.item.notebook.storage}
+                  </div>
+                )}
+                {contract.item.computer && (
+                  <div className="text-[10px] text-slate-700">
+                    {contract.item.computer.brandOrCustom} | CPU: {contract.item.computer.processor} | RAM {contract.item.computer.ramGb}GB | {contract.item.computer.storage}
+                  </div>
+                )}
+                {contract.item.printer && (
+                  <div className="text-[10px] text-slate-700">
+                    S/N: {contract.item.printer.serialNumber} | {contract.item.printer.brand} {contract.item.printer.model} | หัวพิมพ์: {contract.item.printer.headCondition === 'normal' ? '100%' : 'มีเส้น'}
                   </div>
                 )}
                 {contract.item.phone && (
-                  <div className="text-[10px] text-slate-600">IMEI: {contract.item.phone.imei}</div>
+                  <div className="text-[10px] text-slate-700">IMEI: {contract.item.phone.imei} | {contract.item.phone.storageGb}</div>
                 )}
-                {contract.item.vehicle && (
-                  <div className="text-[10px] text-slate-600">ทะเบียน: {contract.item.vehicle.licensePlate} {contract.item.vehicle.province}</div>
+                {contract.item.itGadget && (
+                  <div className="text-[10px] text-slate-700">S/N: {contract.item.itGadget.serialNumber} | {contract.item.itGadget.brand} {contract.item.itGadget.model}</div>
                 )}
               </div>
 
@@ -349,9 +378,11 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                 <div className="bg-slate-50 p-4 rounded border border-slate-200 space-y-2 text-xs">
                   <div>
                     <strong>ข้อ ๑.</strong> ผู้ขายฝากได้นำทรัพย์สิน คือ <strong>{contract.item.name}</strong> ({contract.item.description})
-                    {contract.item.gold && ` น้ำหนักทอง ${contract.item.gold.weightBaht} บาท (${contract.item.gold.weightGram} กรัม) ความบริสุทธิ์ ${contract.item.gold.purity}`}
-                    {contract.item.phone && ` เลข IMEI: ${contract.item.phone.imei}`}
-                    {contract.item.vehicle && ` ทะเบียน ${contract.item.vehicle.licensePlate} ${contract.item.vehicle.province}`}
+                    {contract.item.notebook && ` S/N: ${contract.item.notebook.serialNumber} ซีพียู ${contract.item.notebook.processor} แรม ${contract.item.notebook.ramGb}GB ความจุ ${contract.item.notebook.storage} พร้อม${contract.item.notebook.hasCharger ? 'สายชาร์จ' : 'ไม่มีสายชาร์จ'}`}
+                    {contract.item.computer && ` สเปก ${contract.item.computer.brandOrCustom} ซีพียู ${contract.item.computer.processor} แรม ${contract.item.computer.ramGb}GB ความจุ ${contract.item.computer.storage} การ์ดจอ ${contract.item.computer.gpu || '-'}`}
+                    {contract.item.printer && ` S/N: ${contract.item.printer.serialNumber} ปริ้นเตอร์ ${contract.item.printer.brand} ${contract.item.printer.model} หัวพิมพ์สภาพ ${contract.item.printer.headCondition === 'normal' ? 'สมบูรณ์' : 'ต้องล้าง'}`}
+                    {contract.item.phone && ` เลข IMEI / S/N: ${contract.item.phone.imei} ความจุ ${contract.item.phone.storageGb} ปลดล็อคระบบเรียบร้อย`}
+                    {contract.item.itGadget && ` S/N: ${contract.item.itGadget.serialNumber} ${contract.item.itGadget.brand} ${contract.item.itGadget.model}`}
                     {' '}มาส่งมอบและขายฝากไว้แก่ผู้รับซื้อฝากในราคาทั้งสิ้น <strong>{formatCurrency(contract.loanAmount)} ({bahtToText(contract.loanAmount)})</strong> และผู้ขายฝากได้รับเงินดังกล่าวไปครบถ้วนถูกต้องแล้วในวันทำสัญญานี้
                   </div>
                   <div>
