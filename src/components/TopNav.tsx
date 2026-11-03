@@ -1,4 +1,4 @@
-import { Plus, User, ShieldCheck, Clock, Cloud } from 'lucide-react';
+import { Plus, User, ShieldCheck, Clock, Cloud, Camera, QrCode as QrIcon } from 'lucide-react';
 import { UserAccount } from '../types/pawn';
 import { formatThaiDate } from '../utils/thaiFormat';
 
@@ -7,6 +7,7 @@ interface TopNavProps {
   onSelectTab: (tab: 'workstation' | 'secondhand' | 'customers' | 'reports' | 'backup' | 'settings') => void;
   onOpenNewContract: () => void;
   onOpenNewBuyIn?: () => void;
+  onOpenScanner?: () => void;
   secondhandCount?: number;
   currentUser: UserAccount;
   allUsers: UserAccount[];
@@ -21,6 +22,7 @@ export const TopNav: React.FC<TopNavProps> = ({
   onSelectTab,
   onOpenNewContract,
   onOpenNewBuyIn,
+  onOpenScanner,
   secondhandCount = 0,
   currentUser,
   allUsers,
@@ -169,6 +171,19 @@ export const TopNav: React.FC<TopNavProps> = ({
             </select>
             <ShieldCheck className="w-3.5 h-3.5 text-amber-400 absolute right-1.5 top-2.5 pointer-events-none" />
           </div>
+
+          {/* Quick QR Scanner Button */}
+          {onOpenScanner && (
+            <button
+              type="button"
+              onClick={onOpenScanner}
+              className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-slate-200 hover:text-white bg-slate-800 hover:bg-slate-750 border border-slate-700 hover:border-amber-400 rounded-xl transition-all shadow-xs flex items-center gap-1.5 whitespace-nowrap shrink-0 active:scale-95 cursor-pointer"
+              title="สแกน QR Code ติดเครื่องของลูกค้า (กล้อง/ปืนบาร์โค้ด)"
+            >
+              <Camera className="w-3.5 h-3.5 text-amber-400 stroke-[2.5]" />
+              <span className="hidden md:inline">สแกน QR ลูกค้า</span>
+            </button>
+          )}
 
           {/* Contextual Action Button */}
           {currentTab === 'secondhand' && onOpenNewBuyIn ? (

@@ -36,6 +36,7 @@ interface BuyInLaptopModalProps {
   existingBuyIns: SecondhandBuyIn[];
   settings: ShopSettings;
   currentUser: UserAccount;
+  initialCustomer?: Customer | null;
 }
 
 const COMMON_BRANDS: NotebookBrand[] = [
@@ -91,20 +92,34 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
   existingBuyIns,
   settings,
   currentUser,
+  initialCustomer,
 }) => {
   // Step navigation (mobile friendly tab)
   const [activeTab, setActiveTab] = useState<'seller' | 'specs' | 'pricing'>('seller');
 
   // Seller selection / creation
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(initialCustomer ? initialCustomer.id : '');
   const [customerSearch, setCustomerSearch] = useState<string>('');
   const [isNewCustomer, setIsNewCustomer] = useState<boolean>(false);
-  const [citizenId, setCitizenId] = useState<string>('');
-  const [prefix, setPrefix] = useState<string>('นาย');
-  const [firstName, setFirstName] = useState<string>('');
-  const [lastName, setLastName] = useState<string>('');
-  const [phone, setPhone] = useState<string>('');
-  const [address, setAddress] = useState<string>('อำเภอเมือง จังหวัดพัทลุง 93000');
+  const [citizenId, setCitizenId] = useState<string>(initialCustomer ? initialCustomer.citizenId : '');
+  const [prefix, setPrefix] = useState<string>(initialCustomer ? initialCustomer.prefix : 'นาย');
+  const [firstName, setFirstName] = useState<string>(initialCustomer ? initialCustomer.firstName : '');
+  const [lastName, setLastName] = useState<string>(initialCustomer ? initialCustomer.lastName : '');
+  const [phone, setPhone] = useState<string>(initialCustomer ? initialCustomer.phone : '');
+  const [address, setAddress] = useState<string>(initialCustomer ? initialCustomer.address : 'อำเภอเมือง จังหวัดพัทลุง 93000');
+
+  useEffect(() => {
+    if (isOpen && initialCustomer) {
+      setSelectedCustomerId(initialCustomer.id);
+      setIsNewCustomer(false);
+      setCitizenId(initialCustomer.citizenId);
+      setFirstName(initialCustomer.firstName);
+      setLastName(initialCustomer.lastName);
+      setPrefix(initialCustomer.prefix);
+      setPhone(initialCustomer.phone);
+      setAddress(initialCustomer.address);
+    }
+  }, [isOpen, initialCustomer]);
 
   // Notebook specs
   const [brand, setBrand] = useState<NotebookBrand | string>('Asus');

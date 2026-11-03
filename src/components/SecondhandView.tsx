@@ -20,10 +20,11 @@ import {
   User,
   Eye,
   Check,
-  X
+  X,
+  QrCode as QrIcon
 } from 'lucide-react';
 import { SecondhandBuyIn, BuyInStatus, NotebookBrand } from '../types/buyIn';
-import { ShopSettings, UserAccount } from '../types/pawn';
+import { ShopSettings, UserAccount, Customer } from '../types/pawn';
 import { formatThaiDate } from '../utils/thaiFormat';
 
 interface SecondhandViewProps {
@@ -33,6 +34,7 @@ interface SecondhandViewProps {
   onOpenNewBuyIn: () => void;
   onPrintBuyIn: (buyIn: SecondhandBuyIn) => void;
   onUpdateBuyIn: (updatedBuyIn: SecondhandBuyIn) => void;
+  onOpenPrintTag?: (customer: Customer, item?: SecondhandBuyIn) => void;
 }
 
 export const SecondhandView: React.FC<SecondhandViewProps> = ({
@@ -42,6 +44,7 @@ export const SecondhandView: React.FC<SecondhandViewProps> = ({
   onOpenNewBuyIn,
   onPrintBuyIn,
   onUpdateBuyIn,
+  onOpenPrintTag,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | BuyInStatus>('all');
@@ -440,14 +443,27 @@ export const SecondhandView: React.FC<SecondhandViewProps> = ({
 
                   {/* Card Actions Footer */}
                   <div className="p-2.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-1.5">
-                    <button
-                      onClick={() => onPrintBuyIn(item)}
-                      className="px-2.5 py-1 text-slate-700 hover:text-slate-900 hover:bg-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
-                      title="พิมพ์สัญญาซื้อขายโน็ตบุ้คมือสอง / ใบรับซื้อของเก่า"
-                    >
-                      <Printer className="w-3.5 h-3.5 text-slate-600" />
-                      <span>พิมพ์สัญญา</span>
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => onPrintBuyIn(item)}
+                        className="px-2 py-1 text-slate-700 hover:text-slate-900 hover:bg-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer"
+                        title="พิมพ์สัญญาซื้อขายโน็ตบุ้คมือสอง / ใบรับซื้อของเก่า"
+                      >
+                        <Printer className="w-3.5 h-3.5 text-slate-600" />
+                        <span>สัญญา</span>
+                      </button>
+
+                      {onOpenPrintTag && (
+                        <button
+                          onClick={() => onOpenPrintTag(seller, item)}
+                          className="px-2 py-1 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-2xs"
+                          title="พิมพ์สติกเกอร์ QR ติดเครื่องโน็ตบุ้คนี้"
+                        >
+                          <QrIcon className="w-3 h-3 stroke-[2.5]" />
+                          <span>สติกเกอร์ QR</span>
+                        </button>
+                      )}
+                    </div>
 
                     <div className="flex items-center gap-1">
                       {/* Status quick select */}

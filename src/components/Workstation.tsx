@@ -23,7 +23,9 @@ import {
   Package,
   ShieldAlert,
   FileText,
-  UserCheck
+  UserCheck,
+  Camera,
+  QrCode as QrIcon
 } from 'lucide-react';
 import { PawnContract, ContractStatus, ItemCategory, ShopSettings, UserAccount } from '../types/pawn';
 import { formatCurrency, formatThaiDate, getDaysRemaining, formatCitizenId, formatPhone } from '../utils/thaiFormat';
@@ -38,6 +40,8 @@ interface WorkstationProps {
   onOpenPrintModal: (contract: PawnContract, mode?: any) => void;
   onRequestEditContract: (contract: PawnContract) => void;
   onForfeitContract: (contract: PawnContract) => void;
+  onOpenScanner?: () => void;
+  onOpenPrintCustomerTag?: (contract: PawnContract) => void;
 }
 
 export const Workstation: React.FC<WorkstationProps> = ({
@@ -50,6 +54,8 @@ export const Workstation: React.FC<WorkstationProps> = ({
   onOpenPrintModal,
   onRequestEditContract,
   onForfeitContract,
+  onOpenScanner,
+  onOpenPrintCustomerTag,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
@@ -195,22 +201,35 @@ export const Workstation: React.FC<WorkstationProps> = ({
 
       {/* 2. Fast Universal Search & Filter Bar */}
       <div className="bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-2.5 text-xs shrink-0">
-        {/* Universal Search Input */}
-        <div className="relative w-full md:w-96">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ค้นหา: เลขสัญญา, บัตร ปชช., ชื่อลูกค้า, เบอร์โทร..."
-            className="w-full px-3 py-1.5 pl-8 rounded-lg border border-slate-300 bg-white text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
-          />
-          <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-          {searchQuery && (
+        {/* Universal Search Input + Quick Scan Button */}
+        <div className="flex items-center gap-1.5 w-full md:w-auto">
+          <div className="relative flex-1 md:w-80">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="ค้นหา: เลขสัญญา, บัตร ปชช., ชื่อลูกค้า, S/N..."
+              className="w-full px-3 py-1.5 pl-8 rounded-lg border border-slate-300 bg-white text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 font-sans"
+            />
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs"
+              >
+                ล้าง
+              </button>
+            )}
+          </div>
+          {onOpenScanner && (
             <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs"
+              type="button"
+              onClick={onOpenScanner}
+              className="px-2.5 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1 shrink-0 transition-all shadow-2xs cursor-pointer active:scale-95"
+              title="สแกน QR Code ติดเครื่องของลูกค้า"
             >
-              ล้าง
+              <Camera className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span className="hidden sm:inline">สแกน QR</span>
             </button>
           )}
         </div>
@@ -556,8 +575,8 @@ export const Workstation: React.FC<WorkstationProps> = ({
                 </div>
               </div>
 
-              {/* Action Buttons Hub (ต่อดอก, ไถ่ถอน, พิมพ์ตั๋ว) */}
-              <div className="p-2 bg-slate-100 border-b border-slate-200 grid grid-cols-3 gap-1.5 shrink-0">
+              {/* Action Buttons Hub (ต่อดอก, ไถ่ถอน, พิมพ์ตั๋ว, สติกเกอร์ QR) */}
+              <div className="p-2 bg-slate-100 border-b border-slate-200 grid grid-cols-4 gap-1.5 shrink-0">
                 <button
                   type="button"
                   disabled={selectedContract.status === 'redeemed' || selectedContract.status === 'forfeited'}
@@ -565,11 +584,11 @@ export const Workstation: React.FC<WorkstationProps> = ({
                   className={`py-1.5 px-1 rounded-lg font-medium text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-2xs ${
                     selectedContract.status === 'redeemed' || selectedContract.status === 'forfeited'
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95'
+                      : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95 cursor-pointer'
                   }`}
                 >
                   <Calendar className="w-3.5 h-3.5" />
-                  <span>ต่อดอกเบี้ย</span>
+                  <span>ต่อดอก</span>
                 </button>
 
                 <button
@@ -579,21 +598,33 @@ export const Workstation: React.FC<WorkstationProps> = ({
                   className={`py-1.5 px-1 rounded-lg font-medium text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-2xs ${
                     selectedContract.status === 'redeemed' || selectedContract.status === 'forfeited'
                       ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white active:scale-95 cursor-pointer'
                   }`}
                 >
                   <Award className="w-3.5 h-3.5" />
-                  <span>ไถ่ถอนทรัพย์</span>
+                  <span>ไถ่ถอน</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => onOpenPrintModal(selectedContract)}
-                  className="py-1.5 px-1 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg font-medium text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-2xs active:scale-95"
+                  className="py-1.5 px-1 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-lg font-medium text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-2xs active:scale-95 cursor-pointer"
                 >
                   <Printer className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>พิมพ์ตั๋ว/สลิป</span>
+                  <span>พิมพ์ตั๋ว</span>
                 </button>
+
+                {onOpenPrintCustomerTag && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenPrintCustomerTag(selectedContract)}
+                    className="py-1.5 px-1 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-lg text-xs flex flex-col items-center justify-center gap-1 transition-all shadow-2xs active:scale-95 cursor-pointer"
+                    title="พิมพ์สติกเกอร์ QR ประจำตัวลูกค้า / ติดเครื่องนี้"
+                  >
+                    <QrIcon className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>สติกเกอร์ QR</span>
+                  </button>
+                )}
               </div>
 
               {/* Inspector Body Details */}

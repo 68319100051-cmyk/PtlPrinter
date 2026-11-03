@@ -50,6 +50,7 @@ interface NewContractModalProps {
   existingContracts: PawnContract[];
   settings: ShopSettings;
   currentUser: UserAccount;
+  initialCustomer?: Customer | null;
 }
 
 const COMMON_NOTEBOOK_BRANDS = ['Asus', 'Acer', 'Lenovo', 'Dell', 'HP', 'Apple', 'MSI', 'Huawei'];
@@ -74,11 +75,19 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
   existingContracts,
   settings,
   currentUser,
+  initialCustomer,
 }) => {
   // Mode: select existing or new customer
   const [customerMode, setCustomerMode] = useState<'search' | 'new'>('search');
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(initialCustomer || null);
+
+  React.useEffect(() => {
+    if (isOpen && initialCustomer) {
+      setSelectedCustomer(initialCustomer);
+      setCustomerMode('search');
+    }
+  }, [isOpen, initialCustomer]);
 
   // New Customer fields
   const [newCustCitizenId, setNewCustCitizenId] = useState('');

@@ -19,6 +19,9 @@ import { EditContractModal } from './components/EditContractModal';
 import { SecondhandView } from './components/SecondhandView';
 import { BuyInLaptopModal } from './components/BuyInLaptopModal';
 import { PrintBuyInAgreementModal } from './components/PrintBuyInAgreementModal';
+import { CustomerTagPrintModal } from './components/CustomerTagPrintModal';
+import { CustomerDossierModal } from './components/CustomerDossierModal';
+import { QuickScannerModal } from './components/QuickScannerModal';
 import {
   PawnContract,
   Customer,
@@ -105,12 +108,20 @@ export default function App() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isBuyInLaptopOpen, setIsBuyInLaptopOpen] = useState(false);
   const [isPrintBuyInOpen, setIsPrintBuyInOpen] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isCustomerDossierOpen, setIsCustomerDossierOpen] = useState(false);
+  const [isCustomerTagPrintOpen, setIsCustomerTagPrintOpen] = useState(false);
 
   // Active items for modals
   const [activeContract, setActiveContract] = useState<PawnContract | null>(null);
   const [activePrintMode, setActivePrintMode] = useState<'slip' | 'half_a4' | 'full_contract' | 'interest_receipt' | 'redeem_receipt'>('half_a4');
   const [activeReceipt, setActiveReceipt] = useState<InterestPayment | undefined>(undefined);
   const [activeBuyIn, setActiveBuyIn] = useState<SecondhandBuyIn | null>(null);
+  const [dossierCustomer, setDossierCustomer] = useState<Customer | null>(null);
+  const [tagCustomer, setTagCustomer] = useState<Customer | null>(null);
+  const [tagRelatedContract, setTagRelatedContract] = useState<PawnContract | null>(null);
+  const [tagRelatedBuyIn, setTagRelatedBuyIn] = useState<SecondhandBuyIn | null>(null);
+  const [preselectedCustomer, setPreselectedCustomer] = useState<Customer | null>(null);
 
   // Security gatekeeper state
   const [securityAction, setSecurityAction] = useState<{
@@ -312,8 +323,15 @@ export default function App() {
             setCurrentTab(tab);
           }
         }}
-        onOpenNewContract={() => setIsNewContractOpen(true)}
-        onOpenNewBuyIn={() => setIsBuyInLaptopOpen(true)}
+        onOpenNewContract={() => {
+          setPreselectedCustomer(null);
+          setIsNewContractOpen(true);
+        }}
+        onOpenNewBuyIn={() => {
+          setPreselectedCustomer(null);
+          setIsBuyInLaptopOpen(true);
+        }}
+        onOpenScanner={() => setIsScannerOpen(true)}
         secondhandCount={secondhandBuyIns.filter(i => i.status !== 'sold').length}
         currentUser={currentUser}
         allUsers={users}
@@ -330,7 +348,10 @@ export default function App() {
             contracts={contracts}
             settings={settings}
             currentUser={currentUser}
-            onOpenNewContract={() => setIsNewContractOpen(true)}
+            onOpenNewContract={() => {
+              setPreselectedCustomer(null);
+              setIsNewContractOpen(true);
+            }}
             onOpenInterestModal={(contract) => {
               setActiveContract(contract);
               setIsInterestOpen(true);
@@ -347,6 +368,13 @@ export default function App() {
             }}
             onRequestEditContract={handleRequestEditContract}
             onForfeitContract={handleForfeitContract}
+            onOpenScanner={() => setIsScannerOpen(true)}
+            onOpenPrintCustomerTag={(contract) => {
+              setTagCustomer(contract.customerSnapshot);
+              setTagRelatedContract(contract);
+              setTagRelatedBuyIn(null);
+              setIsCustomerTagPrintOpen(true);
+            }}
           />
         )}
 
@@ -355,12 +383,21 @@ export default function App() {
             buyIns={secondhandBuyIns}
             settings={settings}
             currentUser={currentUser}
-            onOpenNewBuyIn={() => setIsBuyInLaptopOpen(true)}
+            onOpenNewBuyIn={() => {
+              setPreselectedCustomer(null);
+              setIsBuyInLaptopOpen(true);
+            }}
             onPrintBuyIn={(item) => {
               setActiveBuyIn(item);
               setIsPrintBuyInOpen(true);
             }}
             onUpdateBuyIn={handleUpdateBuyIn}
+            onOpenPrintTag={(sellerCust, item) => {
+              setTagCustomer(sellerCust);
+              setTagRelatedContract(null);
+              setTagRelatedBuyIn(item || null);
+              setIsCustomerTagPrintOpen(true);
+            }}
           />
         )}
 
@@ -391,12 +428,16 @@ export default function App() {
       {/* 1. New Contract Modal */}
       <NewContractModal
         isOpen={isNewContractOpen}
-        onClose={() => setIsNewContractOpen(false)}
+        onClose={() => {
+          setIsNewContractOpen(false);
+          setPreselectedCustomer(null);
+        }}
         onSave={handleSaveNewContract}
         customers={customers}
         existingContracts={contracts}
         settings={settings}
         currentUser={currentUser}
+        initialCustomer={preselectedCustomer}
       />
 
       {/* 2. Interest Payment Modal */}
@@ -450,6 +491,13 @@ export default function App() {
             setActivePrintMode('half_a4');
             setIsPrintOpen(true);
           }
+        }}
+        onOpenScanner={() => setIsScannerOpen(true)}
+        onOpenPrintTag={(cust) => {
+          setTagCustomer(cust);
+          setTagRelatedContract(null);
+          setTagRelatedBuyIn(null);
+          setIsCustomerTagPrintOpen(true);
         }}
       />
 
@@ -505,12 +553,16 @@ export default function App() {
       {/* 10. Secondhand Notebook Buy-in Modal */}
       <BuyInLaptopModal
         isOpen={isBuyInLaptopOpen}
-        onClose={() => setIsBuyInLaptopOpen(false)}
+        onClose={() => {
+          setIsBuyInLaptopOpen(false);
+          setPreselectedCustomer(null);
+        }}
         onSave={handleSaveNewBuyIn}
         customers={customers}
         existingBuyIns={secondhandBuyIns}
         settings={settings}
         currentUser={currentUser}
+        initialCustomer={preselectedCustomer}
       />
 
       {/* 11. Secondhand Buy-in Legal Agreement / Bill of Sale Print Modal */}
@@ -520,6 +572,85 @@ export default function App() {
           onClose={() => setIsPrintBuyInOpen(false)}
           buyIn={activeBuyIn}
           settings={settings}
+        />
+      )}
+
+      {/* 12. Quick QR / Barcode Scanner Modal (สแกนจากสติกเกอร์ติดเครื่องลูกค้า) */}
+      <QuickScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        customers={customers}
+        contracts={contracts}
+        buyIns={secondhandBuyIns}
+        onSelectCustomer={(cust, contract, buyIn) => {
+          setIsScannerOpen(false);
+          setDossierCustomer(cust);
+          if (contract) setActiveContract(contract);
+          if (buyIn) setActiveBuyIn(buyIn);
+          setIsCustomerDossierOpen(true);
+        }}
+      />
+
+      {/* 13. Customer Dossier Modal (แสดงข้อมูลลูกค้าและเครื่องทั้งหมดหลังสแกน) */}
+      {dossierCustomer && (
+        <CustomerDossierModal
+          isOpen={isCustomerDossierOpen}
+          onClose={() => {
+            setIsCustomerDossierOpen(false);
+            setDossierCustomer(null);
+          }}
+          customer={dossierCustomer}
+          contracts={contracts}
+          buyIns={secondhandBuyIns}
+          settings={settings}
+          currentUser={currentUser}
+          onOpenInterestModal={(contract) => {
+            setActiveContract(contract);
+            setIsInterestOpen(true);
+          }}
+          onOpenRedeemModal={(contract) => {
+            setActiveContract(contract);
+            setIsRedeemOpen(true);
+          }}
+          onOpenPrintContractModal={(contract) => {
+            setActiveContract(contract);
+            setActivePrintMode('half_a4');
+            setIsPrintOpen(true);
+          }}
+          onOpenPrintCustomerTag={(cust, contract, buyIn) => {
+            setTagCustomer(cust);
+            setTagRelatedContract(contract || null);
+            setTagRelatedBuyIn(buyIn || null);
+            setIsCustomerTagPrintOpen(true);
+          }}
+          onOpenNewContractForCustomer={(cust) => {
+            setPreselectedCustomer(cust);
+            setIsNewContractOpen(true);
+          }}
+          onOpenNewBuyInForCustomer={(cust) => {
+            setPreselectedCustomer(cust);
+            setIsBuyInLaptopOpen(true);
+          }}
+          onOpenEditCustomer={(cust) => {
+            setIsCustomerModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* 14. Customer Machine Tag / QR Sticker Print Modal */}
+      {tagCustomer && (
+        <CustomerTagPrintModal
+          isOpen={isCustomerTagPrintOpen}
+          onClose={() => {
+            setIsCustomerTagPrintOpen(false);
+            setTagCustomer(null);
+            setTagRelatedContract(null);
+            setTagRelatedBuyIn(null);
+          }}
+          customer={tagCustomer}
+          settings={settings}
+          relatedContract={tagRelatedContract}
+          relatedBuyIn={tagRelatedBuyIn}
         />
       )}
     </div>

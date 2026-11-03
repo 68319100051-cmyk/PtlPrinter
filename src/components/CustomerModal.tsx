@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Search, User, Phone, MapPin, Plus, FileText, Check, ShieldAlert, Award, Calendar, ChevronLeft } from 'lucide-react';
+import { X, Search, User, Phone, MapPin, Plus, FileText, Check, ShieldAlert, Award, Calendar, ChevronLeft, QrCode as QrIcon, Camera } from 'lucide-react';
 import { Customer, PawnContract } from '../types/pawn';
 import { formatCurrency, formatThaiDate, formatCitizenId, formatPhone } from '../utils/thaiFormat';
 
@@ -10,6 +10,8 @@ interface CustomerModalProps {
   contracts: PawnContract[];
   onSaveCustomer: (cust: Customer) => void;
   onSelectContract: (contract: PawnContract, action: 'view' | 'interest' | 'redeem' | 'print') => void;
+  onOpenPrintTag?: (customer: Customer) => void;
+  onOpenScanner?: () => void;
 }
 
 export const CustomerModal: React.FC<CustomerModalProps> = ({
@@ -19,6 +21,8 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
   contracts,
   onSaveCustomer,
   onSelectContract,
+  onOpenPrintTag,
+  onOpenScanner,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>(customers[0]?.id || '');
@@ -155,17 +159,32 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                 />
                 <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  startAddNewCustomer();
-                  setMobileCustomerView('profile');
-                }}
-                className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1.5 shadow-xs"
-              >
-                <Plus className="w-4 h-4" />
-                เพิ่มลูกค้าใหม่
-              </button>
+              <div className="grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    startAddNewCustomer();
+                    setMobileCustomerView('profile');
+                  }}
+                  className="py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-medium transition-colors flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  เพิ่มลูกค้าใหม่
+                </button>
+                {onOpenScanner && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenScanner();
+                    }}
+                    className="py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-1 shadow-xs cursor-pointer"
+                  >
+                    <Camera className="w-4 h-4 stroke-[2.5]" />
+                    สแกน QR
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
@@ -377,13 +396,25 @@ export const CustomerModal: React.FC<CustomerModalProps> = ({
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={startEditCurrentCustomer}
-                    className="px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-medium transition-colors shrink-0"
-                  >
-                    แก้ไขข้อมูล
-                  </button>
+                  <div className="flex flex-col sm:flex-row items-center gap-2 shrink-0">
+                    {onOpenPrintTag && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenPrintTag(activeCustomer)}
+                        className="w-full sm:w-auto px-3.5 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer active:scale-95"
+                      >
+                        <QrIcon className="w-3.5 h-3.5" />
+                        <span>พิมพ์สติกเกอร์ QR</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={startEditCurrentCustomer}
+                      className="w-full sm:w-auto px-3.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-medium transition-colors"
+                    >
+                      แก้ไขข้อมูล
+                    </button>
+                  </div>
                 </div>
 
                 {/* Customer Statistics Card */}
