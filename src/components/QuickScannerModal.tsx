@@ -79,6 +79,42 @@ export const QuickScannerModal: React.FC<QuickScannerModalProps> = ({
     const text = rawText.trim();
     if (!text) return;
 
+    // 0. Handle Web URL if scanned (e.g., https://...?customer=cust-1234 or ?c=1234)
+    if (text.startsWith('http://') || text.startsWith('https://') || text.includes('customer=') || text.includes('c=')) {
+      try {
+        let extractedCust: string | null = null;
+        let extractedContract: string | null = null;
+        if (text.startsWith('http://') || text.startsWith('https://')) {
+          const urlObj = new URL(text);
+          extractedCust = urlObj.searchParams.get('customer') || urlObj.searchParams.get('c');
+          extractedContract = urlObj.searchParams.get('contract') || urlObj.searchParams.get('contractNo');
+        } else if (text.includes('customer=')) {
+          extractedCust = text.split('customer=')[1]?.split('&')[0];
+        } else if (text.includes('c=')) {
+          extractedCust = text.split('c=')[1]?.split('&')[0];
+        }
+
+        if (extractedCust) {
+          const cleanCust = decodeURIComponent(extractedCust).trim().toLowerCase();
+          const matched = customers.find(c =>
+            c.id.toLowerCase() === cleanCust ||
+            c.citizenId === cleanCust ||
+            c.id.toLowerCase().endsWith(cleanCust) ||
+            c.citizenId.endsWith(cleanCust)
+          );
+          if (matched) {
+            const matchedContract = extractedContract
+              ? contracts.find(con => con.contractNumber.toLowerCase() === extractedContract.toLowerCase() || con.id === extractedContract)
+              : undefined;
+            handleSuccessMatch(matched, matchedContract);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('URL parsing error in scanner:', e);
+      }
+    }
+
     // 1. Direct CUSTOMER: ID or CUST- format
     let targetCustId = '';
     if (text.startsWith('CUSTOMER:')) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Printer, Copy, Check, Download, Tag, QrCode as QrIcon, User, Laptop } from 'lucide-react';
+import { X, Printer, Copy, Check, Download, Tag, QrCode as QrIcon, User, Laptop, Smartphone, ExternalLink } from 'lucide-react';
 import QRCode from 'qrcode';
 import { Customer, ShopSettings, PawnContract } from '../types/pawn';
 import { SecondhandBuyIn } from '../types/buyIn';
@@ -28,8 +28,22 @@ export const CustomerTagPrintModal: React.FC<CustomerTagPrintModalProps> = ({
   const [copiedCode, setCopiedCode] = useState(false);
   const printContainerRef = useRef<HTMLDivElement>(null);
 
-  // Standardized QR Code payload for the customer
-  const qrPayload = `CUSTOMER:${customer.id}`;
+  // Helper to determine the web link so any mobile phone camera (iPhone/Android/LINE)
+  // can scan the sticker directly and open the customer page without entering the site first.
+  const getAppBaseUrl = () => {
+    const SHARED_APP_URL = 'https://ais-pre-jzkqzjupumrauqntqq2mph-721081949057.asia-southeast1.run.app';
+    if (typeof window !== 'undefined' && window.location) {
+      const origin = window.location.origin;
+      if (origin && !origin.includes('localhost') && !origin.includes('127.0.0.1') && !origin.includes('about:blank')) {
+        return origin;
+      }
+    }
+    return SHARED_APP_URL;
+  };
+
+  const baseUrl = getAppBaseUrl();
+  const contractParam = relatedContract ? `&contract=${encodeURIComponent(relatedContract.contractNumber)}` : '';
+  const qrPayload = `${baseUrl}/?customer=${encodeURIComponent(customer.id)}${contractParam}`;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -116,6 +130,25 @@ export const CustomerTagPrintModal: React.FC<CustomerTagPrintModalProps> = ({
           >
             <X className="w-5 h-5" />
           </button>
+        </div>
+
+        {/* Mobile-Friendly Direct Scan Notice Banner */}
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 sm:px-6 py-2.5 flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs text-amber-950 gap-2 shrink-0">
+          <div className="flex items-center gap-2">
+            <Smartphone className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>สแกนด้วยกล้องมือถือได้ทันที (ไม่ต้องเปิดเว็บก่อน):</strong> รองรับทั้งกล้อง iPhone, Android และ LINE สแกนแล้วแตะเปิดดูประวัติลูกค้าและเครื่องได้เลย
+            </span>
+          </div>
+          <a
+            href={qrPayload}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-white px-2.5 py-1 rounded-lg border border-indigo-200 shadow-2xs whitespace-nowrap shrink-0 transition-colors"
+          >
+            <span>ทดสอบเปิดดู</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
         </div>
 
         {/* Options Toolbar */}
@@ -206,8 +239,8 @@ export const CustomerTagPrintModal: React.FC<CustomerTagPrintModalProps> = ({
                       <div className="font-mono text-[9px] text-slate-500 truncate">S/N: {itemInfo.sn}</div>
                     </div>
                   )}
-                  <div className="text-[8px] text-slate-400 pt-0.5 font-mono">
-                    สแกนดูประวัติลูกค้า/เครื่อง · {todayDateStr}
+                  <div className="text-[8px] text-amber-700 pt-0.5 font-medium">
+                    📷 สแกนด้วยกล้องมือถือดูประวัติเครื่อง
                   </div>
                 </div>
               </div>
@@ -256,8 +289,8 @@ export const CustomerTagPrintModal: React.FC<CustomerTagPrintModalProps> = ({
                   )}
                 </div>
 
-                <div className="text-[9px] text-slate-400 pt-1 font-mono">
-                  ใช้กล้องหรือสแกนเนอร์สแกน QR เพื่อเรียกดูประวัติทันที
+                <div className="text-[9px] text-amber-800 pt-1 font-medium">
+                  📷 ใช้กล้อง iPhone/Android หรือ LINE สแกนดูข้อมูลเครื่องได้ทันที
                 </div>
               </div>
             )}
@@ -292,19 +325,28 @@ export const CustomerTagPrintModal: React.FC<CustomerTagPrintModalProps> = ({
 
         {/* Footer Actions */}
         <div className="px-5 py-4 border-t border-slate-200 bg-white flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
-          <div className="flex items-center gap-2 text-slate-600">
+          <div className="flex flex-wrap items-center gap-2 text-slate-600">
             <button
               type="button"
               onClick={handleCopyCode}
-              className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 font-medium transition-colors flex items-center gap-1.5"
+              className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               {copiedCode ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4 text-slate-500" />}
-              <span>{copiedCode ? 'คัดลอกรหัสแล้ว' : 'คัดลอกรหัส QR'}</span>
+              <span>{copiedCode ? 'คัดลอกลิงก์แล้ว' : 'คัดลอกลิงก์ QR'}</span>
             </button>
+            <a
+              href={qrPayload}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-2 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-medium transition-colors flex items-center gap-1.5"
+            >
+              <ExternalLink className="w-4 h-4" />
+              <span>ทดสอบเปิดดูข้อมูล</span>
+            </a>
             <button
               type="button"
               onClick={handleDownloadQr}
-              className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 font-medium transition-colors flex items-center gap-1.5"
+              className="px-3 py-2 rounded-xl border border-slate-300 hover:bg-slate-50 font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <Download className="w-4 h-4 text-slate-500" />
               <span>ดาวน์โหลดรูป QR</span>
@@ -370,7 +412,7 @@ export const CustomerTagPrintModal: React.FC<CustomerTagPrintModalProps> = ({
                   <div>S/N: {itemInfo.sn}</div>
                 </div>
               )}
-              <div style={{ fontSize: '6pt', color: '#666', marginTop: '1mm' }}>{customerCode} · {todayDateStr}</div>
+              <div style={{ fontSize: '6pt', color: '#b45309', fontWeight: 'bold', marginTop: '1mm' }}>สแกนด้วยกล้องมือถือดูข้อมูลเครื่อง · {customerCode}</div>
             </div>
           </div>
         )}
@@ -378,7 +420,7 @@ export const CustomerTagPrintModal: React.FC<CustomerTagPrintModalProps> = ({
         {tagFormat === 'label_80mm' && (
           <div style={{ width: '75mm', padding: '4mm', fontFamily: 'sans-serif', textAlign: 'center', boxSizing: 'border-box' }}>
             <div style={{ fontWeight: 'bold', fontSize: '10pt', color: '#000' }}>{settings.shopName || 'พัทลุงปริ้นเตอร์ คอมพิวเตอร์'}</div>
-            <div style={{ fontSize: '8pt', color: '#666' }}>ป้ายระบุตัวตนเจ้าของเครื่อง (Customer Asset Tag)</div>
+            <div style={{ fontSize: '7.5pt', color: '#b45309', fontWeight: 'bold' }}>สแกนด้วยกล้องมือถือ (iPhone/Android/LINE) ดูข้อมูลทันที</div>
             <div style={{ margin: '3mm auto', display: 'flex', justifyContent: 'center' }}>
               {qrDataUrl && <img src={qrDataUrl} style={{ width: '35mm', height: '35mm', objectFit: 'contain' }} alt="QR" />}
             </div>

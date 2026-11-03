@@ -96,6 +96,39 @@ export default function App() {
     };
   }, []);
 
+  // Detect direct QR code scan from external smartphone camera (?customer=... or ?c=...)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const targetCustId = urlParams.get('customer') || urlParams.get('c');
+    const targetContractNo = urlParams.get('contract') || urlParams.get('contractNo');
+
+    if (targetCustId && customers.length > 0) {
+      const cleanTarget = targetCustId.trim().toLowerCase();
+      const matched = customers.find(c =>
+        c.id.toLowerCase() === cleanTarget ||
+        c.citizenId === targetCustId ||
+        c.id.toLowerCase().endsWith(cleanTarget) ||
+        c.citizenId.endsWith(cleanTarget) ||
+        `${c.firstName} ${c.lastName}`.toLowerCase().includes(cleanTarget)
+      );
+
+      if (matched) {
+        setDossierCustomer(matched);
+        if (targetContractNo && contracts.length > 0) {
+          const matchedContract = contracts.find(con =>
+            con.contractNumber.toLowerCase() === targetContractNo.toLowerCase() ||
+            con.id === targetContractNo
+          );
+          if (matchedContract) {
+            setActiveContract(matchedContract);
+          }
+        }
+        setIsCustomerDossierOpen(true);
+      }
+    }
+  }, [customers, contracts]);
+
   // Modals state
   const [isNewContractOpen, setIsNewContractOpen] = useState(false);
   const [isInterestOpen, setIsInterestOpen] = useState(false);
