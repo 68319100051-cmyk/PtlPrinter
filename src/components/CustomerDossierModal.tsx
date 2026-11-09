@@ -515,7 +515,11 @@ export const CustomerDossierModal: React.FC<CustomerDossierModalProps> = ({
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                             c.status === 'redeemed' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
                           }`}>
-                            {c.status === 'redeemed' ? 'ไถ่ถอนสำเร็จแล้ว' : 'หลุดจำนำ'}
+                            {c.status === 'redeemed'
+                              ? 'ไถ่ถอนสำเร็จแล้ว'
+                              : c.convertedToBuyInId
+                              ? `หลุดจำนำ ➔ มือสอง (${c.convertedToBuyInId})`
+                              : 'หลุดจำนำ'}
                           </span>
                         </div>
                         <h4 className="font-semibold text-slate-900 mt-0.5">{c.item.name}</h4>

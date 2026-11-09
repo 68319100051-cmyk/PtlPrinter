@@ -22,6 +22,7 @@ import { PrintBuyInAgreementModal } from './components/PrintBuyInAgreementModal'
 import { CustomerTagPrintModal } from './components/CustomerTagPrintModal';
 import { CustomerDossierModal } from './components/CustomerDossierModal';
 import { QuickScannerModal } from './components/QuickScannerModal';
+import { ConvertForfeitedModal } from './components/ConvertForfeitedModal';
 import {
   PawnContract,
   Customer,
@@ -155,6 +156,7 @@ export default function App() {
   const [tagRelatedContract, setTagRelatedContract] = useState<PawnContract | null>(null);
   const [tagRelatedBuyIn, setTagRelatedBuyIn] = useState<SecondhandBuyIn | null>(null);
   const [preselectedCustomer, setPreselectedCustomer] = useState<Customer | null>(null);
+  const [convertForfeitContract, setConvertForfeitContract] = useState<PawnContract | null>(null);
 
   // Security gatekeeper state
   const [securityAction, setSecurityAction] = useState<{
@@ -305,6 +307,25 @@ export default function App() {
     setIsSecurityOpen(true);
   };
 
+  // Convert forfeited pawn into secondhand inventory
+  const handleConfirmConvertForfeited = (updatedContract: PawnContract, newBuyIn: SecondhandBuyIn) => {
+    // 1. Update contracts
+    const updatedContracts = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
+    setContracts(updatedContracts);
+    saveContracts(updatedContracts);
+    syncContractToCloud(updatedContract).catch(console.error);
+
+    // 2. Append to secondhand buy-ins
+    const updatedBuyIns = [newBuyIn, ...secondhandBuyIns];
+    setSecondhandBuyIns(updatedBuyIns);
+    saveSecondhandBuyIns(updatedBuyIns);
+    syncSecondhandToCloud(newBuyIn).catch(console.error);
+
+    if (activeContract?.id === updatedContract.id) {
+      setActiveContract(updatedContract);
+    }
+  };
+
   // 6. Save edited contract
   const handleSaveEditedContract = (updatedContract: PawnContract) => {
     const updated = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
@@ -401,6 +422,7 @@ export default function App() {
             }}
             onRequestEditContract={handleRequestEditContract}
             onForfeitContract={handleForfeitContract}
+            onOpenConvertForfeited={(contract) => setConvertForfeitContract(contract)}
             onOpenScanner={() => setIsScannerOpen(true)}
             onOpenPrintCustomerTag={(contract) => {
               setTagCustomer(contract.customerSnapshot);
@@ -684,6 +706,19 @@ export default function App() {
           settings={settings}
           relatedContract={tagRelatedContract}
           relatedBuyIn={tagRelatedBuyIn}
+        />
+      )}
+
+      {/* 15. Convert Forfeited Pawn into Secondhand Inventory Modal */}
+      {convertForfeitContract && (
+        <ConvertForfeitedModal
+          isOpen={!!convertForfeitContract}
+          onClose={() => setConvertForfeitContract(null)}
+          contract={convertForfeitContract}
+          currentUser={currentUser}
+          existingBuyIns={secondhandBuyIns}
+          onConfirmConvert={handleConfirmConvertForfeited}
+          onNavigateToSecondhand={() => setCurrentTab('secondhand')}
         />
       )}
     </div>

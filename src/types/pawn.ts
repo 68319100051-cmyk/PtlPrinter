@@ -157,6 +157,7 @@ export interface PawnContract {
     paymentMethod: 'cash' | 'transfer';
   };
   forfeitedDate?: string;
+  convertedToBuyInId?: string; // รหัสสินค้ามือสองที่แปลงไป เช่น NB-6911002
   amendmentLogs: ContractAmendmentLog[];
   storageLocation?: string; // ที่จัดเก็บ เช่น ตู้ไอที ชั้น 2 ล็อกเกอร์ B-03, โซนคอมพิวเตอร์
   note?: string;

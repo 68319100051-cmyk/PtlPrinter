@@ -25,7 +25,8 @@ import {
   FileText,
   UserCheck,
   Camera,
-  QrCode as QrIcon
+  QrCode as QrIcon,
+  ArrowRightLeft
 } from 'lucide-react';
 import { PawnContract, ContractStatus, ItemCategory, ShopSettings, UserAccount } from '../types/pawn';
 import { formatCurrency, formatThaiDate, getDaysRemaining, formatCitizenId, formatPhone, formatDurationText } from '../utils/thaiFormat';
@@ -40,6 +41,7 @@ interface WorkstationProps {
   onOpenPrintModal: (contract: PawnContract, mode?: any) => void;
   onRequestEditContract: (contract: PawnContract) => void;
   onForfeitContract: (contract: PawnContract) => void;
+  onOpenConvertForfeited?: (contract: PawnContract) => void;
   onOpenScanner?: () => void;
   onOpenPrintCustomerTag?: (contract: PawnContract) => void;
 }
@@ -54,6 +56,7 @@ export const Workstation: React.FC<WorkstationProps> = ({
   onOpenPrintModal,
   onRequestEditContract,
   onForfeitContract,
+  onOpenConvertForfeited,
   onOpenScanner,
   onOpenPrintCustomerTag,
 }) => {
@@ -499,18 +502,24 @@ export const Workstation: React.FC<WorkstationProps> = ({
                         </td>
 
                         <td className="py-2.5 px-3 text-center whitespace-nowrap">
-                          <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
-                            c.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
-                            c.status === 'due_soon' ? 'bg-amber-100 text-amber-800' :
-                            c.status === 'overdue' ? 'bg-rose-100 text-rose-800' :
-                            c.status === 'redeemed' ? 'bg-slate-100 text-slate-700' :
-                            'bg-purple-100 text-purple-800'
-                          }`}>
-                            {c.status === 'active' ? 'ปกติ' :
-                             c.status === 'due_soon' ? 'ใกล้ครบ' :
-                             c.status === 'overdue' ? 'เกินกำหนด' :
-                             c.status === 'redeemed' ? 'ไถ่ถอนแล้ว' : 'ยึดหลุดแล้ว'}
-                          </span>
+                          {c.status === 'forfeited' && c.convertedToBuyInId ? (
+                            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              มือสอง {c.convertedToBuyInId}
+                            </span>
+                          ) : (
+                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-semibold ${
+                              c.status === 'active' ? 'bg-emerald-100 text-emerald-800' :
+                              c.status === 'due_soon' ? 'bg-amber-100 text-amber-800' :
+                              c.status === 'overdue' ? 'bg-rose-100 text-rose-800' :
+                              c.status === 'redeemed' ? 'bg-slate-100 text-slate-700' :
+                              'bg-purple-100 text-purple-800'
+                            }`}>
+                              {c.status === 'active' ? 'ปกติ' :
+                               c.status === 'due_soon' ? 'ใกล้ครบ' :
+                               c.status === 'overdue' ? 'เกินกำหนด' :
+                               c.status === 'redeemed' ? 'ไถ่ถอนแล้ว' : 'ยึดหลุดแล้ว'}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -626,6 +635,43 @@ export const Workstation: React.FC<WorkstationProps> = ({
                   </button>
                 )}
               </div>
+
+              {/* Forfeited Conversion Banner */}
+              {(selectedContract.status === 'forfeited' || getDaysRemaining(selectedContract.dueDate) < -settings.gracePeriodDays) && (
+                <div className="p-3 bg-linear-to-r from-purple-900 to-slate-900 text-white flex items-center justify-between gap-2.5 shrink-0 border-b border-purple-800 shadow-xs">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-lg bg-amber-400 text-slate-950 flex items-center justify-center shrink-0">
+                      <ArrowRightLeft className="w-4 h-4 stroke-[2.5]" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs text-amber-300 flex items-center gap-1.5 truncate">
+                        <span>ทรัพย์สินหลุดจำนำ</span>
+                        {selectedContract.convertedToBuyInId && (
+                          <span className="text-[10px] bg-emerald-500 text-white font-mono px-1.5 py-0.2 rounded font-normal">
+                            ย้ายเข้าสต็อกแล้ว: {selectedContract.convertedToBuyInId}
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[10.5px] text-slate-300 truncate">
+                        {selectedContract.convertedToBuyInId
+                          ? 'แปลงเป็นสต็อกสินค้ามือสองหน้าร้านเรียบร้อยแล้ว'
+                          : 'พ้นระยะผ่อนผันแล้ว พร้อมแปลงเข้าคลังสินค้ามือสองหน้าร้าน'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {onOpenConvertForfeited && !selectedContract.convertedToBuyInId && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenConvertForfeited(selectedContract)}
+                      className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-lg text-xs flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 shrink-0 cursor-pointer"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5 stroke-[2.5]" />
+                      <span>แปลงเป็นสินค้ามือสอง</span>
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Inspector Body Details */}
               <div className="flex-1 min-h-0 p-3 space-y-3 overflow-y-auto">
@@ -858,9 +904,20 @@ export const Workstation: React.FC<WorkstationProps> = ({
                     <button
                       type="button"
                       onClick={() => onForfeitContract(selectedContract)}
-                      className="text-xs text-rose-600 hover:text-rose-800 font-medium"
+                      className="text-xs text-rose-600 hover:text-rose-800 font-medium cursor-pointer"
                     >
                       ยึดหลุดจำนำ
+                    </button>
+                  )}
+
+                  {selectedContract.status === 'forfeited' && !selectedContract.convertedToBuyInId && onOpenConvertForfeited && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenConvertForfeited(selectedContract)}
+                      className="text-xs text-purple-700 hover:text-purple-900 font-bold flex items-center gap-1 cursor-pointer bg-purple-50 px-2 py-1 rounded border border-purple-200"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5" />
+                      <span>แปลงเข้าสต็อกมือสอง</span>
                     </button>
                   )}
                 </div>
