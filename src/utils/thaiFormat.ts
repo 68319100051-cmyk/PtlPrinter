@@ -166,10 +166,72 @@ export function calculateTieredInterestRate(
 }
 
 /**
+ * Format duration text nicely in Thai (e.g. "1 เดือน 15 วัน", "2 เดือน", "15 วัน")
+ */
+export function formatDurationText(months: number = 0, days: number = 0): string {
+  const m = Math.max(0, Math.floor(months || 0));
+  const d = Math.max(0, Math.floor(days || 0));
+  
+  if (m > 0 && d > 0) {
+    return `${m} เดือน ${d} วัน`;
+  }
+  if (m > 0) {
+    return `${m} เดือน`;
+  }
+  if (d > 0) {
+    return `${d} วัน`;
+  }
+  return '0 วัน';
+}
+
+/**
  * Add months to date string and return ISO format YYYY-MM-DD
  */
 export function addMonthsToDate(baseDateStr: string, months: number): string {
+  return addMonthsAndDaysToDate(baseDateStr, months, 0);
+}
+
+/**
+ * Add months and days to date string and return ISO format YYYY-MM-DD
+ */
+export function addMonthsAndDaysToDate(baseDateStr: string, months: number = 0, days: number = 0): string {
   const d = new Date(baseDateStr);
-  d.setMonth(d.getMonth() + months);
+  if (isNaN(d.getTime())) return baseDateStr;
+  if (months > 0) {
+    d.setMonth(d.getMonth() + months);
+  }
+  if (days > 0) {
+    d.setDate(d.getDate() + days);
+  }
   return d.toISOString().split('T')[0];
+}
+
+/**
+ * Calculate months and days between two ISO date strings (startDate and dueDate)
+ */
+export function calculateDurationFromDates(startDateStr: string, dueDateStr: string): { months: number; days: number } {
+  if (!startDateStr || !dueDateStr) return { months: 0, days: 0 };
+  const start = new Date(startDateStr);
+  const due = new Date(dueDateStr);
+  if (isNaN(start.getTime()) || isNaN(due.getTime()) || due < start) {
+    return { months: 0, days: 0 };
+  }
+
+  let months = (due.getFullYear() - start.getFullYear()) * 12 + (due.getMonth() - start.getMonth());
+  let dayDiff = due.getDate() - start.getDate();
+
+  if (dayDiff < 0) {
+    months -= 1;
+    // Get days in previous month
+    const prevMonthDate = new Date(due.getFullYear(), due.getMonth(), 0);
+    dayDiff += prevMonthDate.getDate();
+  }
+
+  if (months < 0) {
+    const diffTime = due.getTime() - start.getTime();
+    const totalDays = Math.max(0, Math.round(diffTime / (1000 * 60 * 60 * 24)));
+    return { months: 0, days: totalDays };
+  }
+
+  return { months: Math.max(0, months), days: Math.max(0, dayDiff) };
 }

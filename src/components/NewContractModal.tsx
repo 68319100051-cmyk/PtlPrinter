@@ -37,6 +37,9 @@ import {
   formatThaiDate,
   calculateTieredInterestRate,
   addMonthsToDate,
+  addMonthsAndDaysToDate,
+  calculateDurationFromDates,
+  formatDurationText,
   formatCitizenId,
   formatPhone
 } from '../utils/thaiFormat';
@@ -170,12 +173,53 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
       : settings.defaultMonthlyRate
   );
   const [durationMonths, setDurationMonths] = useState<number>(settings.defaultDurationMonths || 2);
+  const [durationDays, setDurationDays] = useState<number>(0);
   const [note, setNote] = useState('');
 
-  // Auto-calculated dates
+  // Flexible dates (supports custom startDate, dueDate, months, and days)
   const todayIso = new Date().toISOString().split('T')[0];
   const [startDate, setStartDate] = useState(todayIso);
-  const dueDate = addMonthsToDate(startDate, durationMonths);
+  const [dueDate, setDueDate] = useState<string>(() => addMonthsAndDaysToDate(todayIso, settings.defaultDurationMonths || 2, 0));
+
+  const handleStartDateChange = (newStart: string) => {
+    setStartDate(newStart);
+    if (newStart) {
+      setDueDate(addMonthsAndDaysToDate(newStart, durationMonths, durationDays));
+    }
+  };
+
+  const handleDurationMonthsChange = (newMonths: number) => {
+    const m = Math.max(0, newMonths);
+    setDurationMonths(m);
+    setDueDate(addMonthsAndDaysToDate(startDate, m, durationDays));
+  };
+
+  const handleDurationDaysChange = (newDays: number) => {
+    const d = Math.max(0, newDays);
+    setDurationDays(d);
+    setDueDate(addMonthsAndDaysToDate(startDate, durationMonths, d));
+  };
+
+  const handleDueDateChange = (newDue: string) => {
+    setDueDate(newDue);
+    if (newDue && startDate) {
+      const { months, days } = calculateDurationFromDates(startDate, newDue);
+      setDurationMonths(months);
+      setDurationDays(days);
+    }
+  };
+
+  const handlePresetSelect = (m: number, d: number) => {
+    setDurationMonths(m);
+    setDurationDays(d);
+    setDueDate(addMonthsAndDaysToDate(startDate, m, d));
+  };
+
+  // Total period in months for interest calculation (e.g., 1 month + 15 days = 1.5 months; 15 days = 0.5 months)
+  const totalDurationMonths = Math.max(0, durationMonths) + Math.max(0, durationDays) / 30;
+  const totalInterest = Math.round(loanAmount * (monthlyInterestRate / 100) * totalDurationMonths);
+  const monthlyInterest = Math.round(loanAmount * (monthlyInterestRate / 100));
+  const dailyInterest = Math.round(monthlyInterest / 30);
 
   // Recalculate tiered rate whenever loanAmount changes
   const handleLoanAmountChange = (amount: number) => {
@@ -376,6 +420,11 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
       } : undefined,
     };
 
+    if (durationMonths <= 0 && durationDays <= 0) {
+      alert('กรุณากำหนดระยะเวลาสัญญาอย่างน้อย 1 วัน หรือ 1 เดือน');
+      return;
+    }
+
     const nextContractNumber = generateNextContractNumber(existingContracts);
 
     const newContract: PawnContract = {
@@ -389,6 +438,7 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
       isTieredRate,
       startDate,
       durationMonths,
+      durationDays,
       dueDate,
       status: 'active',
       isLocked: true,
@@ -1210,36 +1260,120 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-700 font-semibold mb-1">
-                  ระยะเวลาสัญญา (เดือน)
+                <label className="block text-slate-700 font-semibold mb-1 flex items-center justify-between">
+                  <span>ระยะเวลา (เดือน / วัน)</span>
+                  <span className="text-[11px] text-amber-800 font-bold bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300">
+                    {formatDurationText(durationMonths, durationDays)}
+                  </span>
                 </label>
-                <select
-                  value={durationMonths}
-                  onChange={(e) => setDurationMonths(Number(e.target.value))}
-                  className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-900"
-                >
-                  <option value={1}>1 เดือน</option>
-                  <option value={2}>2 เดือน (มาตรฐาน)</option>
-                  <option value={3}>3 เดือน</option>
-                  <option value={4}>4 เดือน</option>
-                  <option value={6}>6 เดือน</option>
-                </select>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={36}
+                      value={durationMonths}
+                      onChange={(e) => handleDurationMonthsChange(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900 text-xs text-center focus:ring-1 focus:ring-amber-400 focus:outline-none"
+                      placeholder="0"
+                    />
+                    <span className="text-slate-500 text-xs shrink-0">เดือน</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      min={0}
+                      max={31}
+                      value={durationDays}
+                      onChange={(e) => handleDurationDaysChange(parseInt(e.target.value) || 0)}
+                      className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg font-mono font-bold text-slate-900 text-xs text-center focus:ring-1 focus:ring-amber-400 focus:outline-none"
+                      placeholder="0"
+                    />
+                    <span className="text-slate-500 text-xs shrink-0">วัน</span>
+                  </div>
+                </div>
               </div>
+            </div>
+
+            {/* Row 2: Flexible Date Picker Inputs (Start Date & Due Date) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-200">
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1 flex items-center justify-between">
+                  <span>📅 วันที่เริ่มทำสัญญา</span>
+                  <span className="text-[11px] text-slate-500 font-normal">
+                    {formatThaiDate(startDate, false)}
+                  </span>
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => handleStartDateChange(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-medium text-slate-900 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-700 font-semibold mb-1 flex items-center justify-between">
+                  <span>🎯 วันที่ครบกำหนดไถ่ถอน (เลือกจากปฏิทินได้)</span>
+                  <span className="text-[11px] text-rose-600 font-bold">
+                    {formatThaiDate(dueDate, false)}
+                  </span>
+                </label>
+                <input
+                  type="date"
+                  value={dueDate}
+                  min={startDate}
+                  onChange={(e) => handleDueDateChange(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white border border-rose-300 rounded-lg text-xs font-bold text-rose-700 focus:ring-1 focus:ring-rose-500 focus:outline-none"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Quick Duration Presets */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+              <span className="text-[11px] text-slate-500 font-medium">⚡ กำหนดด่วน:</span>
+              {[
+                { label: '15 วัน', m: 0, d: 15 },
+                { label: '1 เดือน', m: 1, d: 0 },
+                { label: '1 เดือน 15 วัน', m: 1, d: 15 },
+                { label: '2 เดือน (มาตรฐาน)', m: 2, d: 0 },
+                { label: '3 เดือน', m: 3, d: 0 },
+                { label: '4 เดือน', m: 4, d: 0 },
+                { label: '6 เดือน', m: 6, d: 0 },
+              ].map((preset) => {
+                const isSelected = durationMonths === preset.m && durationDays === preset.d;
+                return (
+                  <button
+                    key={preset.label}
+                    type="button"
+                    onClick={() => handlePresetSelect(preset.m, preset.d)}
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-amber-400 text-slate-950 font-bold shadow-xs'
+                        : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Interest Calculation Strip */}
             <div className="p-2.5 rounded-lg bg-emerald-50 border border-emerald-200 flex flex-col sm:flex-row justify-between items-center gap-1.5 text-xs">
               <div className="text-emerald-900">
-                <span>ดอกเบี้ยต่องวด ({durationMonths} เดือน): </span>
+                <span>ดอกเบี้ยตลอดสัญญา ({formatDurationText(durationMonths, durationDays)}): </span>
                 <strong className="font-mono text-sm text-emerald-800">
-                  ฿{Math.round(loanAmount * (monthlyInterestRate / 100) * durationMonths).toLocaleString()} บาท
+                  ฿{totalInterest.toLocaleString()} บาท
                 </strong>
                 <span className="text-[11px] text-emerald-700 ml-1.5">
-                  (เดือนละ ฿{Math.round(loanAmount * (monthlyInterestRate / 100)).toLocaleString()})
+                  (เดือนละ ฿{monthlyInterest.toLocaleString()} {durationDays > 0 ? `• เฉลี่ยวันละ ~฿${dailyInterest.toLocaleString()}` : ''})
                 </span>
               </div>
               <div className="text-slate-600 font-mono text-[11px]">
-                ครบกำหนดไถ่ถอน: <strong className="text-slate-900">{formatThaiDate(dueDate)}</strong>
+                ครบกำหนดไถ่ถอน: <strong className="text-slate-900">{formatThaiDate(dueDate, true)}</strong>
               </div>
             </div>
           </div>

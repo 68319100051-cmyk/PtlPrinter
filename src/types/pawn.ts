@@ -140,6 +140,7 @@ export interface PawnContract {
   isTieredRate: boolean;
   startDate: string; // ISO date
   durationMonths: number; // e.g. 1, 2, 3, 4
+  durationDays?: number; // e.g. 0, 7, 15, 20
   dueDate: string; // ISO date
   status: ContractStatus;
   isLocked: boolean; // Locked against modification

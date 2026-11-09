@@ -32,23 +32,23 @@ export const TopNav: React.FC<TopNavProps> = ({
   syncStatus = 'connected',
 }) => {
   const todayStr = formatThaiDate(new Date().toISOString());
+  const effectiveLogo = (logoUrl && !logoUrl.includes('/src/assets/')) ? logoUrl : '/shop_logo.jpg';
 
   return (
     <header className="no-print bg-slate-900 border-b border-slate-800 text-white shrink-0 sticky top-0 z-40 w-full max-w-full">
       <div className="flex items-center justify-between gap-2 sm:gap-4 px-3 sm:px-4 py-2 w-full max-w-full min-w-0">
         {/* Zone 1: Brand Wordmark (Responsive truncate) */}
         <div className="flex items-center gap-2 min-w-0 shrink">
-          {logoUrl ? (
-            <img
-              src={logoUrl}
-              alt="Logo"
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-contain bg-white p-0.5 border border-slate-700 shadow-xs shrink-0"
-            />
-          ) : (
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl bg-linear-to-tr from-amber-500 to-indigo-500 flex items-center justify-center font-bold text-white shadow-xs shrink-0 text-sm">
-              พ
-            </div>
-          )}
+          <img
+            src={effectiveLogo}
+            alt="Logo"
+            onError={(e) => {
+              if (e.currentTarget.src !== window.location.origin + '/shop_logo.jpg') {
+                e.currentTarget.src = '/shop_logo.jpg';
+              }
+            }}
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg object-contain bg-white p-0.5 border border-slate-700 shadow-xs shrink-0"
+          />
           <a
             href="#"
             onClick={(e) => { e.preventDefault(); onSelectTab('workstation'); }}

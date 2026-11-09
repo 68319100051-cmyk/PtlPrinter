@@ -40,6 +40,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [gracePeriodDays, setGracePeriodDays] = useState(settings.gracePeriodDays);
   const [lateFeePerDay, setLateFeePerDay] = useState(settings.lateFeePerDay);
   const [termsAndConditions, setTermsAndConditions] = useState(settings.termsAndConditions);
+  const [logoUrl, setLogoUrl] = useState(
+    settings.logoUrl && !settings.logoUrl.includes('/src/assets/')
+      ? settings.logoUrl
+      : '/shop_logo.jpg'
+  );
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setLogoUrl(event.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Interest & Tiers
   const [enableSteppedTiers, setEnableSteppedTiers] = useState(settings.enableSteppedTiers);
@@ -95,6 +112,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       bankName: bankName.trim(),
       bankAccountNumber: bankAccountNumber.trim(),
       bankAccountName: bankAccountName.trim(),
+      logoUrl: logoUrl || '/shop_logo.jpg',
       defaultDurationMonths,
       gracePeriodDays,
       lateFeePerDay,
@@ -167,6 +185,42 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           {/* TAB 1: SHOP & OWNER INFO */}
           {activeTab === 'shop' && (
             <div className="space-y-4 text-xs">
+              {/* Logo Preview & Change */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={logoUrl || '/shop_logo.jpg'}
+                    alt="Logo"
+                    onError={(e) => {
+                      if (e.currentTarget.src !== window.location.origin + '/shop_logo.jpg') {
+                        e.currentTarget.src = '/shop_logo.jpg';
+                      }
+                    }}
+                    className="w-12 h-12 rounded-lg object-contain bg-white border border-slate-300 p-0.5 shadow-xs shrink-0"
+                  />
+                  <div>
+                    <div className="font-bold text-slate-900 text-xs">โลโก้ร้านค้า (Shop Logo)</div>
+                    <div className="text-[11px] text-slate-500">
+                      แสดงบนแถบเมนูด้านบน, ตั๋วสัญญาขนาด A5, และใบเสร็จรับเงินทุกฉบับ
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-lg text-xs cursor-pointer shadow-xs transition-colors">
+                    <span>+ เปลี่ยนรูปโลโก้</span>
+                    <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setLogoUrl('/shop_logo.jpg')}
+                    className="px-2.5 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs rounded-lg font-medium cursor-pointer"
+                  >
+                    คืนค่าโลโก้ร้านเดิม
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-slate-700 font-medium mb-1">ชื่อร้าน / นิติบุคคล</label>

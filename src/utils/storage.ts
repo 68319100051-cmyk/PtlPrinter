@@ -32,7 +32,7 @@ export const DEFAULT_SETTINGS: ShopSettings = {
   bankAccountNumber: '083-4-26805-8',
   bankAccountName: 'พัทลุงปริ้นเตอร์ คอมพิวเตอร์',
   ownerName: 'คุณชัยกร (Chaiyakorn)',
-  logoUrl: '/src/assets/shop_logo.jpg',
+  logoUrl: '/shop_logo.jpg',
   defaultDurationMonths: 2,
   defaultMonthlyRate: 1.75,
   enableSteppedTiers: true,
@@ -435,7 +435,11 @@ export function getSettings(): ShopSettings {
       saveSettings(DEFAULT_SETTINGS);
       return DEFAULT_SETTINGS;
     }
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    if (!parsed.logoUrl || parsed.logoUrl === '/src/assets/shop_logo.jpg') {
+      parsed.logoUrl = '/shop_logo.jpg';
+    }
+    return { ...DEFAULT_SETTINGS, ...parsed, logoUrl: parsed.logoUrl || '/shop_logo.jpg' };
   } catch {
     return DEFAULT_SETTINGS;
   }

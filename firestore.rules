@@ -1,25 +1,38 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
     function isValidId(id) {
       return id is string && id.size() > 0 && id.size() <= 128;
     }
 
     match /contracts/{contractId} {
-      allow read, write: if isValidId(contractId);
+      allow get: if isValidId(contractId);
+      allow list: if true;
+      allow write: if isValidId(contractId);
     }
 
     match /archived_contracts/{contractId} {
-      allow read, write: if isValidId(contractId);
+      allow get: if isValidId(contractId);
+      allow list: if true;
+      allow write: if isValidId(contractId);
     }
 
     match /customers/{customerId} {
-      allow read, write: if isValidId(customerId);
+      allow get: if isValidId(customerId);
+      allow list: if true;
+      allow write: if isValidId(customerId);
     }
 
     match /settings/{settingId} {
-      allow read, write: if isValidId(settingId);
+      allow get: if isValidId(settingId);
+      allow list: if true;
+      allow write: if isValidId(settingId);
+    }
+
+    match /secondhand_buyins/{itemId} {
+      allow get: if isValidId(itemId);
+      allow list: if true;
+      allow write: if isValidId(itemId);
     }
 
     match /test/{docId} {

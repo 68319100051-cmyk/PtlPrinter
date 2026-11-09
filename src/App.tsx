@@ -147,7 +147,7 @@ export default function App() {
 
   // Active items for modals
   const [activeContract, setActiveContract] = useState<PawnContract | null>(null);
-  const [activePrintMode, setActivePrintMode] = useState<'slip' | 'half_a4' | 'full_contract' | 'interest_receipt' | 'redeem_receipt'>('half_a4');
+  const [activePrintMode, setActivePrintMode] = useState<'slip' | 'half_a4' | 'a5_ticket' | 'full_contract' | 'interest_receipt' | 'a5_interest_receipt' | 'redeem_receipt' | 'a5_redeem_receipt'>('a5_ticket');
   const [activeReceipt, setActiveReceipt] = useState<InterestPayment | undefined>(undefined);
   const [activeBuyIn, setActiveBuyIn] = useState<SecondhandBuyIn | null>(null);
   const [dossierCustomer, setDossierCustomer] = useState<Customer | null>(null);

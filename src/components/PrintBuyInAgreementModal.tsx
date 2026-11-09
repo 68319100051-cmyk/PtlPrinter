@@ -75,17 +75,29 @@ export const PrintBuyInAgreementModal: React.FC<PrintBuyInAgreementModalProps> =
           >
             {/* Header / Brand */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
-                    {settings.shopName}
-                  </h1>
-                  <p className="text-xs text-slate-600">
-                    {settings.branchName} · เลขประจำตัวผู้เสียภาษี: {settings.taxId}
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    {settings.address} · โทร: {settings.phone} {settings.lineId ? `· Line: ${settings.lineId}` : ''}
-                  </p>
+              <div className="flex justify-between items-start gap-3">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={(settings.logoUrl && !settings.logoUrl.includes('/src/assets/')) ? settings.logoUrl : '/shop_logo.jpg'}
+                    alt="Logo"
+                    onError={(e) => {
+                      if (e.currentTarget.src !== window.location.origin + '/shop_logo.jpg') {
+                        e.currentTarget.src = '/shop_logo.jpg';
+                      }
+                    }}
+                    className="w-12 h-12 rounded-lg object-contain bg-white p-0.5 border border-slate-300 shadow-xs shrink-0"
+                  />
+                  <div>
+                    <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
+                      {settings.shopName}
+                    </h1>
+                    <p className="text-xs text-slate-600">
+                      {settings.branchName} · เลขประจำตัวผู้เสียภาษี: {settings.taxId}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      {settings.address} · โทร: {settings.phone} {settings.lineId ? `· Line: ${settings.lineId}` : ''}
+                    </p>
+                  </div>
                 </div>
                 <div className="text-right">
                   <div className="inline-block px-2.5 py-1 bg-slate-900 text-white text-[11px] font-bold rounded-sm mb-1 uppercase tracking-wide">

@@ -28,7 +28,7 @@ import {
   QrCode as QrIcon
 } from 'lucide-react';
 import { PawnContract, ContractStatus, ItemCategory, ShopSettings, UserAccount } from '../types/pawn';
-import { formatCurrency, formatThaiDate, getDaysRemaining, formatCitizenId, formatPhone } from '../utils/thaiFormat';
+import { formatCurrency, formatThaiDate, getDaysRemaining, formatCitizenId, formatPhone, formatDurationText } from '../utils/thaiFormat';
 
 interface WorkstationProps {
   contracts: PawnContract[];
@@ -779,6 +779,10 @@ export const Workstation: React.FC<WorkstationProps> = ({
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-1.5">
                   <div className="text-slate-500 font-medium border-b border-slate-200 pb-1">
                     เงื่อนไขและวันครบกำหนด
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-600">ระยะเวลาสัญญา:</span>
+                    <strong className="text-slate-900">{formatDurationText(selectedContract.durationMonths, selectedContract.durationDays)}</strong>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600">อัตราดอกเบี้ย:</span>
