@@ -1,7 +1,21 @@
 import React, { useState } from 'react';
-import { X, Database, Download, Upload, Archive, RefreshCw, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
+import { X, Database, Download, Upload, Archive, RefreshCw, CheckCircle, AlertCircle, RotateCcw, FileSpreadsheet, FileJson } from 'lucide-react';
 import { PawnContract } from '../types/pawn';
-import { exportDatabaseBackup, restoreDatabaseBackup, archiveClosedContracts, getArchivedContracts, saveArchivedContracts, saveContracts, getContracts, resetToSampleData } from '../utils/storage';
+import {
+  exportDatabaseBackup,
+  restoreDatabaseBackup,
+  archiveClosedContracts,
+  getArchivedContracts,
+  saveArchivedContracts,
+  saveContracts,
+  getContracts,
+  resetToSampleData,
+  exportContractsToExcelCsv,
+  exportCustomersToExcelCsv,
+  exportSecondhandToExcelCsv,
+  getCustomers,
+  getSecondhandBuyIns,
+} from '../utils/storage';
 import { syncContractToCloud, syncCustomerToCloud, syncSettingsToCloud } from '../services/firebaseSync';
 import { formatCurrency, formatThaiDate } from '../utils/thaiFormat';
 
@@ -34,15 +48,77 @@ export const BackupArchiveModal: React.FC<BackupArchiveModalProps> = ({
       const a = document.createElement('a');
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       a.href = url;
-      a.download = `anchan-pawn-backup-${timestamp}.json`;
+      a.download = `phatthalung-pawn-backup-${timestamp}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      setStatusMessage({ text: 'ดาวน์โหลดไฟล์สำรองข้อมูล (.json) สำเร็จแล้ว' });
+      setStatusMessage({ text: 'ดาวน์โหลดไฟล์สำรองข้อมูล JSON ทั้งระบบสำเร็จแล้ว' });
     } catch (err: unknown) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       setStatusMessage({ text: `เกิดข้อผิดพลาดในการดาวน์โหลด: ${errorMsg}`, isError: true });
+    }
+  };
+
+  const handleDownloadContractsExcel = () => {
+    try {
+      const csv = exportContractsToExcelCsv(contracts);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const timestamp = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `ตารางสัญญาจำนำขายฝาก-${timestamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setStatusMessage({ text: 'ดาวน์โหลดตารางสัญญาเป็นไฟล์ Excel (.csv) สำเร็จแล้ว' });
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setStatusMessage({ text: `เกิดข้อผิดพลาดในการส่งออก Excel: ${errorMsg}`, isError: true });
+    }
+  };
+
+  const handleDownloadCustomersExcel = () => {
+    try {
+      const custs = getCustomers();
+      const csv = exportCustomersToExcelCsv(custs);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const timestamp = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `รายชื่อลูกค้า-${timestamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setStatusMessage({ text: 'ดาวน์โหลดรายชื่อลูกค้าเป็นไฟล์ Excel (.csv) สำเร็จแล้ว' });
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setStatusMessage({ text: `เกิดข้อผิดพลาดในการส่งออก Excel: ${errorMsg}`, isError: true });
+    }
+  };
+
+  const handleDownloadSecondhandExcel = () => {
+    try {
+      const items = getSecondhandBuyIns();
+      const csv = exportSecondhandToExcelCsv(items);
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const timestamp = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `สต็อกสินค้ามือสอง-${timestamp}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      setStatusMessage({ text: 'ดาวน์โหลดสต็อกสินค้ามือสองเป็นไฟล์ Excel (.csv) สำเร็จแล้ว' });
+    } catch (err: unknown) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      setStatusMessage({ text: `เกิดข้อผิดพลาดในการส่งออก Excel: ${errorMsg}`, isError: true });
     }
   };
 
@@ -192,19 +268,63 @@ export const BackupArchiveModal: React.FC<BackupArchiveModalProps> = ({
           {/* TAB 1: BACKUP & RESTORE */}
           {activeTab === 'backup' && (
             <div className="space-y-4 text-xs">
+              {/* Section 1: JSON Full Backup */}
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
                 <div>
-                  <h4 className="font-bold text-slate-900 text-sm">ดาวน์โหลดไฟล์สำรองข้อมูล (Export Backup)</h4>
-                  <p className="text-slate-500 mt-0.5">ส่งออกข้อมูลสัญญา ลูกค้า และการตั้งค่าร้านทั้งหมดเป็นไฟล์ JSON</p>
+                  <div className="flex items-center gap-2">
+                    <FileJson className="w-4 h-4 text-indigo-600" />
+                    <h4 className="font-bold text-slate-900 text-sm">สำรองข้อมูลทั้งระบบเป็น JSON (Full Backup)</h4>
+                  </div>
+                  <p className="text-slate-500 mt-0.5">รวมสัญญา ลูกค้า สต็อกสินค้ามือสอง และการตั้งค่าร้านทั้งหมด สำหรับกู้คืนระบบ</p>
                 </div>
                 <button
                   type="button"
                   onClick={handleDownloadBackup}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors flex items-center gap-2 shadow-xs shrink-0"
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-colors flex items-center gap-2 shadow-xs shrink-0 cursor-pointer"
                 >
                   <Download className="w-4 h-4" />
-                  ดาวน์โหลดไฟล์
+                  ส่งออก JSON
                 </button>
+              </div>
+
+              {/* Section 2: Excel Exports */}
+              <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                    <h4 className="font-bold text-emerald-950 text-sm">ส่งออกข้อมูลเป็น Microsoft Excel (.csv UTF-8)</h4>
+                  </div>
+                  <span className="text-[10px] text-emerald-700 font-medium bg-emerald-100 px-2 py-0.5 rounded-full">เปิดใน Excel ภาษาไทยไม่เพี้ยน</span>
+                </div>
+                <p className="text-emerald-800 text-[11px]">
+                  ส่งออกข้อมูลเป็นตารางเพื่อนำไปทำรายงานบัญชี สรรพากร หรือตรวจนับสต็อกทรัพย์สินและลูกค้า:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={handleDownloadContractsExcel}
+                    className="px-3 py-2.5 bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-300 hover:border-emerald-400 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer text-xs"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Excel สัญญา ({contracts.length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadCustomersExcel}
+                    className="px-3 py-2.5 bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-300 hover:border-emerald-400 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer text-xs"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Excel ลูกค้า</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadSecondhandExcel}
+                    className="px-3 py-2.5 bg-white hover:bg-emerald-50 text-emerald-900 border border-emerald-300 hover:border-emerald-400 rounded-xl font-medium transition-colors flex items-center justify-center gap-2 shadow-xs cursor-pointer text-xs"
+                  >
+                    <Download className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Excel สินค้ามือสอง</span>
+                  </button>
+                </div>
               </div>
 
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">

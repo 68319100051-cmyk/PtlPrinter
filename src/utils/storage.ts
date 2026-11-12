@@ -845,3 +845,185 @@ export function resetToSampleData(): void {
   setCurrentUser(DEFAULT_USERS[0]);
 }
 
+/**
+ * Helper to escape CSV values and preserve text fields (like Citizen ID and phone) in Excel
+ */
+function escapeCsvCell(val: any, forceText = false): string {
+  if (val === null || val === undefined) return '""';
+  const str = String(val).trim();
+  if (forceText) {
+    // Preserve leading zeros and prevent scientific notation in Excel
+    return `="${str.replace(/"/g, '""')}"`;
+  }
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Export contracts to UTF-8 CSV compatible with Microsoft Excel
+ */
+export function exportContractsToExcelCsv(contractList: PawnContract[]): string {
+  const headers = [
+    'เลขที่สัญญา',
+    'วันที่ทำสัญญา',
+    'วันครบกำหนด',
+    'สถานะสัญญา',
+    'ชื่อผู้ขายฝาก',
+    'เบอร์โทรศัพท์',
+    'เลขบัตรประชาชน',
+    'ที่อยู่ลูกค้า',
+    'หมวดหมู่ทรัพย์สิน',
+    'ชื่อทรัพย์สิน/รุ่น',
+    'ยี่ห้อ',
+    'Serial Number/IMEI',
+    'ราคาประเมิน (บาท)',
+    'เงินต้น (บาท)',
+    'อัตราดอกเบี้ยต่อเดือน (%)',
+    'ดอกเบี้ยต่องวด (บาท)',
+    'ที่เก็บทรัพย์สิน',
+    'จำนวนครั้งที่ต่อดอก',
+    'ยอดดอกเบี้ยชำระสะสม (บาท)',
+    'วันที่ไถ่ถอน/หลุดจำนำ',
+    'หมายเหตุ',
+  ];
+
+  const statusMap: Record<string, string> = {
+    active: 'ปกติ (ยังไม่ครบกำหนด)',
+    due_soon: 'ใกล้ครบกำหนด',
+    overdue: 'เกินกำหนด (อยู่ในระยะผ่อนผัน)',
+    redeemed: 'ไถ่ถอนแล้ว',
+    forfeited: 'หลุดจำนำ',
+  };
+
+  const rows = contractList.map((c) => {
+    const cust = c.customerSnapshot;
+    const item = c.item;
+    const brand = item.notebook?.brand || item.computer?.brandOrCustom || item.printer?.brand || item.phone?.brand || item.itGadget?.brand || '';
+    const serial = item.notebook?.serialNumber || item.printer?.serialNumber || item.phone?.imei || item.itGadget?.serialNumber || '';
+    const paymentsCount = c.interestPayments?.length || 0;
+    const totalInterestPaid = (c.interestPayments || []).reduce((sum, p) => sum + (p.totalPaid || p.interestAmount || 0), 0);
+    const monthlyInterestAmt = Math.round(c.loanAmount * (c.monthlyInterestRate / 100));
+    const closeDate = c.redemption?.redeemDate || c.forfeitedDate || '';
+
+    return [
+      escapeCsvCell(c.contractNumber, true),
+      escapeCsvCell(c.startDate),
+      escapeCsvCell(c.dueDate),
+      escapeCsvCell(statusMap[c.status] || c.status),
+      escapeCsvCell(`${cust.prefix || ''}${cust.firstName} ${cust.lastName}`.trim()),
+      escapeCsvCell(cust.phone, true),
+      escapeCsvCell(cust.citizenId, true),
+      escapeCsvCell(cust.address),
+      escapeCsvCell(item.category),
+      escapeCsvCell(item.name),
+      escapeCsvCell(brand),
+      escapeCsvCell(serial, true),
+      escapeCsvCell(item.estimatedValue || ''),
+      escapeCsvCell(c.loanAmount),
+      escapeCsvCell(c.monthlyInterestRate),
+      escapeCsvCell(monthlyInterestAmt),
+      escapeCsvCell(c.storageLocation || ''),
+      escapeCsvCell(paymentsCount),
+      escapeCsvCell(totalInterestPaid),
+      escapeCsvCell(closeDate),
+      escapeCsvCell(c.note || ''),
+    ].join(',');
+  });
+
+  // Prepend UTF-8 BOM (\uFEFF) for native Excel Thai support
+  return '\uFEFF' + [headers.map(h => escapeCsvCell(h)).join(','), ...rows].join('\r\n');
+}
+
+/**
+ * Export customers to UTF-8 CSV compatible with Microsoft Excel
+ */
+export function exportCustomersToExcelCsv(customerList: Customer[]): string {
+  const headers = [
+    'รหัสลูกค้า',
+    'คำนำหน้า',
+    'ชื่อ',
+    'นามสกุล',
+    'เลขประจำตัวประชาชน',
+    'เบอร์โทรศัพท์',
+    'Line ID',
+    'ที่อยู่',
+    'ลูกค้า VIP',
+    'หมายเหตุ',
+    'วันที่ลงทะเบียน',
+  ];
+
+  const rows = customerList.map((cust) => {
+    return [
+      escapeCsvCell(cust.id, true),
+      escapeCsvCell(cust.prefix || ''),
+      escapeCsvCell(cust.firstName),
+      escapeCsvCell(cust.lastName),
+      escapeCsvCell(cust.citizenId, true),
+      escapeCsvCell(cust.phone, true),
+      escapeCsvCell(cust.lineId || '', true),
+      escapeCsvCell(cust.address),
+      escapeCsvCell(cust.isVip ? 'ใช่ (VIP)' : 'ทั่วไป'),
+      escapeCsvCell(cust.note || ''),
+      escapeCsvCell(cust.createdAt || ''),
+    ].join(',');
+  });
+
+  return '\uFEFF' + [headers.map(h => escapeCsvCell(h)).join(','), ...rows].join('\r\n');
+}
+
+/**
+ * Export secondhand buy-in inventory to UTF-8 CSV compatible with Microsoft Excel
+ */
+export function exportSecondhandToExcelCsv(items: SecondhandBuyIn[]): string {
+  const headers = [
+    'รหัสรับซื้อ',
+    'วันที่รับซื้อ',
+    'ประเภทสินค้า',
+    'ชื่อสินค้า/รุ่น',
+    'ยี่ห้อ',
+    'Serial Number',
+    'ซีพียู (CPU)',
+    'แรม (RAM GB)',
+    'ความจุ Storage',
+    'การ์ดจอ (GPU)',
+    'เกรดสภาพสินค้า',
+    'ราคาต้นทุนรับซื้อ (บาท)',
+    'ราคาตั้งขายหน้าร้าน (บาท)',
+    'สถานะสินค้า',
+    'ชื่อผู้ขาย',
+    'เบอร์โทรผู้ขาย',
+    'หมายเหตุ',
+  ];
+
+  const statusMap: Record<string, string> = {
+    in_stock: 'อยู่ในคลังสต็อก',
+    ready_to_sell: 'พร้อมขายหน้าร้าน',
+    sold: 'ขายแล้ว',
+    under_repair: 'ส่งช่างตรวจซ่อม',
+  };
+
+  const rows = items.map((i) => {
+    const specs = i.notebookSpecs;
+    return [
+      escapeCsvCell(i.buyInNumber, true),
+      escapeCsvCell(i.date),
+      escapeCsvCell(i.category),
+      escapeCsvCell(specs?.model || ''),
+      escapeCsvCell(specs?.brand || ''),
+      escapeCsvCell(specs?.serialNumber || '', true),
+      escapeCsvCell(specs?.processor || ''),
+      escapeCsvCell(specs?.ramGb || ''),
+      escapeCsvCell(specs?.storage || ''),
+      escapeCsvCell(specs?.gpu || ''),
+      escapeCsvCell(specs?.cosmeticGrade || ''),
+      escapeCsvCell(i.purchasePrice),
+      escapeCsvCell(i.targetSalePrice || ''),
+      escapeCsvCell(statusMap[i.status] || i.status),
+      escapeCsvCell(`${i.sellerSnapshot.prefix || ''}${i.sellerSnapshot.firstName} ${i.sellerSnapshot.lastName}`.trim()),
+      escapeCsvCell(i.sellerSnapshot.phone, true),
+      escapeCsvCell(i.notes || ''),
+    ].join(',');
+  });
+
+  return '\uFEFF' + [headers.map(h => escapeCsvCell(h)).join(','), ...rows].join('\r\n');
+}
+
