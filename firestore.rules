@@ -35,6 +35,12 @@ service cloud.firestore {
       allow write: if isValidId(itemId);
     }
 
+    match /users/{userId} {
+      allow get: if isValidId(userId);
+      allow list: if true;
+      allow write: if isValidId(userId);
+    }
+
     match /test/{docId} {
       allow read, write: if true;
     }

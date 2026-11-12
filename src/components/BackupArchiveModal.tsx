@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { X, Database, Download, Upload, Archive, RefreshCw, CheckCircle, AlertCircle, RotateCcw } from 'lucide-react';
-import { PawnContract, ShopSettings } from '../types/pawn';
+import { PawnContract } from '../types/pawn';
 import { exportDatabaseBackup, restoreDatabaseBackup, archiveClosedContracts, getArchivedContracts, saveArchivedContracts, saveContracts, getContracts, resetToSampleData } from '../utils/storage';
+import { syncContractToCloud, syncCustomerToCloud, syncSettingsToCloud } from '../services/firebaseSync';
 import { formatCurrency, formatThaiDate } from '../utils/thaiFormat';
 
 interface BackupArchiveModalProps {
@@ -50,11 +51,30 @@ export const BackupArchiveModal: React.FC<BackupArchiveModalProps> = ({
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const content = reader.result as string;
       const result = restoreDatabaseBackup(content);
       if (result.success) {
-        setStatusMessage({ text: 'กู้คืนฐานข้อมูลจากไฟล์สำรองสำเร็จเรียบร้อย!' });
+        setStatusMessage({ text: 'กู้คืนฐานข้อมูลและกำลังซิงค์ขึ้น Firebase Cloud...' });
+        try {
+          const parsed = JSON.parse(content);
+          if (Array.isArray(parsed.contracts)) {
+            for (const c of parsed.contracts) {
+              await syncContractToCloud(c);
+            }
+          }
+          if (Array.isArray(parsed.customers)) {
+            for (const cust of parsed.customers) {
+              await syncCustomerToCloud(cust);
+            }
+          }
+          if (parsed.settings) {
+            await syncSettingsToCloud(parsed.settings);
+          }
+          setStatusMessage({ text: 'กู้คืนฐานข้อมูลและบันทึกลง Firebase Firestore สำเร็จเรียบร้อย!' });
+        } catch (syncErr) {
+          console.error('Error syncing restored data to Firebase:', syncErr);
+        }
         setArchivedList(getArchivedContracts());
         onDataChanged();
       } else {

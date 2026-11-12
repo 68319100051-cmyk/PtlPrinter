@@ -38,6 +38,29 @@
         "phone": { "type": "string" }
       },
       "required": ["shopName"]
+    },
+    "SecondhandBuyIn": {
+      "title": "SecondhandBuyIn",
+      "description": "Secondhand inventory bought in for retail sale",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "buyInNumber": { "type": "string" },
+        "purchasePrice": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "buyInNumber", "purchasePrice", "status"]
+    },
+    "UserAccount": {
+      "title": "UserAccount",
+      "description": "Staff user accounts",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "required": ["id", "name", "role"]
     }
   },
   "firestore": {
@@ -56,6 +79,14 @@
     "/settings/{settingId}": {
       "schema": { "$ref": "#/entities/ShopSettings" },
       "description": "Shop and business settings"
+    },
+    "/secondhand_buyins/{itemId}": {
+      "schema": { "$ref": "#/entities/SecondhandBuyIn" },
+      "description": "Secondhand retail items"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserAccount" },
+      "description": "Staff and admin accounts"
     }
   }
 }

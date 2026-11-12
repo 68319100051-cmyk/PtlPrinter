@@ -65,6 +65,16 @@ export default function App() {
   const [secondhandBuyIns, setSecondhandBuyIns] = useState<SecondhandBuyIn[]>(() => getSecondhandBuyIns());
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('connecting');
 
+  // Toast notification for user confirmation
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(prev => prev?.message === message ? null : prev);
+    }, 4000);
+  };
+
   // Navigation tab
   const [currentTab, setCurrentTab] = useState<'workstation' | 'secondhand' | 'customers' | 'reports' | 'backup' | 'settings'>('workstation');
 
@@ -188,76 +198,123 @@ export default function App() {
   };
 
   // Secondhand Notebook Buy-in handlers
-  const handleSaveNewBuyIn = (newBuyIn: SecondhandBuyIn, newCustomer?: Customer) => {
-    if (newCustomer) {
-      const updatedCustomers = [newCustomer, ...customers];
-      setCustomers(updatedCustomers);
-      saveCustomers(updatedCustomers);
-      syncCustomerToCloud(newCustomer).catch(console.error);
+  const handleSaveNewBuyIn = async (newBuyIn: SecondhandBuyIn, newCustomer?: Customer) => {
+    try {
+      if (newCustomer) {
+        await syncCustomerToCloud(newCustomer);
+        const updatedCustomers = [newCustomer, ...customers.filter(c => c.id !== newCustomer.id)];
+        setCustomers(updatedCustomers);
+        saveCustomers(updatedCustomers);
+        console.log(`บันทึกแล้ว [Firestore]: customers/${newCustomer.id}`, newCustomer);
+      }
+
+      await syncSecondhandToCloud(newBuyIn);
+      const updated = [newBuyIn, ...secondhandBuyIns.filter(i => i.id !== newBuyIn.id)];
+      setSecondhandBuyIns(updated);
+      saveSecondhandBuyIns(updated);
+      console.log(`บันทึกแล้ว [Firestore]: secondhand_buyins/${newBuyIn.id}`, newBuyIn);
+      showToast(`บันทึกแล้ว [Firestore]: รับซื้อสินค้ามือสอง ${newBuyIn.buyInNumber}`);
+
+      // Offer to print legal buy-in agreement immediately
+      setActiveBuyIn(newBuyIn);
+      setIsPrintBuyInOpen(true);
+    } catch (error) {
+      console.error('Error saving buy-in to Firebase:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      alert(`❌ เกิดข้อผิดพลาดในการบันทึกสินค้ามือสองลง Firebase:\n${msg}`);
+      showToast(`บันทึกล้มเหลว: ${msg}`, 'error');
     }
-
-    const updated = [newBuyIn, ...secondhandBuyIns];
-    setSecondhandBuyIns(updated);
-    saveSecondhandBuyIns(updated);
-    syncSecondhandToCloud(newBuyIn).catch(console.error);
-
-    // Offer to print legal buy-in agreement immediately
-    setActiveBuyIn(newBuyIn);
-    setIsPrintBuyInOpen(true);
   };
 
-  const handleUpdateBuyIn = (updatedBuyIn: SecondhandBuyIn) => {
-    const updated = secondhandBuyIns.map(item => item.id === updatedBuyIn.id ? updatedBuyIn : item);
-    setSecondhandBuyIns(updated);
-    saveSecondhandBuyIns(updated);
-    syncSecondhandToCloud(updatedBuyIn).catch(console.error);
+  const handleUpdateBuyIn = async (updatedBuyIn: SecondhandBuyIn) => {
+    try {
+      await syncSecondhandToCloud(updatedBuyIn);
+      const updated = secondhandBuyIns.map(item => item.id === updatedBuyIn.id ? updatedBuyIn : item);
+      setSecondhandBuyIns(updated);
+      saveSecondhandBuyIns(updated);
+      console.log(`บันทึกแล้ว [Firestore]: secondhand_buyins/${updatedBuyIn.id}`, updatedBuyIn);
+      showToast(`บันทึกแล้ว [Firestore]: อัปเดตสินค้ามือสอง ${updatedBuyIn.buyInNumber}`);
+    } catch (error) {
+      console.error('Error updating buy-in in Firebase:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      alert(`❌ เกิดข้อผิดพลาดในการอัปเดตสินค้ามือสองลง Firebase:\n${msg}`);
+      showToast(`อัปเดตล้มเหลว: ${msg}`, 'error');
+    }
   };
 
   // 1. Create New Contract
-  const handleSaveNewContract = (newContract: PawnContract, newCustomer?: Customer) => {
-    if (newCustomer) {
-      const updatedCustomers = [newCustomer, ...customers];
-      setCustomers(updatedCustomers);
-      saveCustomers(updatedCustomers);
-      syncCustomerToCloud(newCustomer).catch(console.error);
+  const handleSaveNewContract = async (newContract: PawnContract, newCustomer?: Customer) => {
+    try {
+      if (newCustomer) {
+        await syncCustomerToCloud(newCustomer);
+        const updatedCustomers = [newCustomer, ...customers.filter(c => c.id !== newCustomer.id)];
+        setCustomers(updatedCustomers);
+        saveCustomers(updatedCustomers);
+        console.log(`บันทึกแล้ว [Firestore]: customers/${newCustomer.id}`, newCustomer);
+      }
+
+      await syncContractToCloud(newContract);
+      const updatedContracts = [newContract, ...contracts.filter(c => c.id !== newContract.id)];
+      setContracts(updatedContracts);
+      saveContracts(updatedContracts);
+      console.log(`บันทึกแล้ว [Firestore]: contracts/${newContract.id}`, newContract);
+      showToast(`บันทึกแล้ว [Firestore]: สัญญาเลขที่ ${newContract.contractNumber}`);
+
+      // Prompt to print immediately
+      setActiveContract(newContract);
+      setActivePrintMode('half_a4');
+      setIsPrintOpen(true);
+    } catch (error) {
+      console.error('Error saving contract to Firebase:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      alert(`❌ เกิดข้อผิดพลาดในการบันทึกสัญญาลง Firebase:\n${msg}`);
+      showToast(`บันทึกสัญญาล้มเหลว: ${msg}`, 'error');
     }
-
-    const updatedContracts = [newContract, ...contracts];
-    setContracts(updatedContracts);
-    saveContracts(updatedContracts);
-    syncContractToCloud(newContract).catch(console.error);
-
-    // Prompt to print immediately
-    setActiveContract(newContract);
-    setActivePrintMode('half_a4');
-    setIsPrintOpen(true);
   };
 
   // 2. Interest Payment
-  const handlePaymentSuccess = (updatedContract: PawnContract, newPayment: InterestPayment) => {
-    const updated = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
-    setContracts(updated);
-    saveContracts(updated);
-    syncContractToCloud(updatedContract).catch(console.error);
+  const handlePaymentSuccess = async (updatedContract: PawnContract, newPayment: InterestPayment) => {
+    try {
+      await syncContractToCloud(updatedContract);
+      const updated = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
+      setContracts(updated);
+      saveContracts(updated);
+      console.log(`บันทึกแล้ว [Firestore]: contracts/${updatedContract.id} (ต่อดอกเบี้ย)`, updatedContract);
+      showToast(`บันทึกแล้ว [Firestore]: ต่อดอกเบี้ยสัญญา ${updatedContract.contractNumber}`);
 
-    // Offer to print receipt
-    setActiveContract(updatedContract);
-    setActiveReceipt(newPayment);
-    setActivePrintMode('interest_receipt');
-    setIsPrintOpen(true);
+      // Offer to print receipt
+      setActiveContract(updatedContract);
+      setActiveReceipt(newPayment);
+      setActivePrintMode('interest_receipt');
+      setIsPrintOpen(true);
+    } catch (error) {
+      console.error('Error saving payment to Firebase:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      alert(`❌ เกิดข้อผิดพลาดในการบันทึกการต่อดอกเบี้ยลง Firebase:\n${msg}`);
+      showToast(`บันทึกต่อดอกเบี้ยล้มเหลว: ${msg}`, 'error');
+    }
   };
 
   // 3. Redeem Contract
-  const handleRedeemSuccess = (updatedContract: PawnContract) => {
-    const updated = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
-    setContracts(updated);
-    saveContracts(updated);
-    syncContractToCloud(updatedContract).catch(console.error);
+  const handleRedeemSuccess = async (updatedContract: PawnContract) => {
+    try {
+      await syncContractToCloud(updatedContract);
+      const updated = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
+      setContracts(updated);
+      saveContracts(updated);
+      console.log(`บันทึกแล้ว [Firestore]: contracts/${updatedContract.id} (ไถ่ถอน)`, updatedContract);
+      showToast(`บันทึกแล้ว [Firestore]: ไถ่ถอนสัญญา ${updatedContract.contractNumber}`);
 
-    // Offer to print release receipt
-    setActiveContract(updatedContract);
-    setActivePrintMode('redeem_receipt');
-    setIsPrintOpen(true);
+      // Offer to print release receipt
+      setActiveContract(updatedContract);
+      setActivePrintMode('redeem_receipt');
+      setIsPrintOpen(true);
+    } catch (error) {
+      console.error('Error saving redemption to Firebase:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      alert(`❌ เกิดข้อผิดพลาดในการบันทึกการไถ่ถอนลง Firebase:\n${msg}`);
+      showToast(`บันทึกไถ่ถอนล้มเหลว: ${msg}`, 'error');
+    }
   };
 
   // 4. Request edit locked contract (requires manager/admin authorization)
@@ -282,7 +339,7 @@ export default function App() {
     setSecurityAction({
       actionTitle: `อนุมัติยึดทรัพย์สินหลุดจำนำ ${targetContract.contractNumber}`,
       actionDescription: `ทรัพย์สิน ${targetContract.item.name} สัญญาเกินกำหนดและพ้นระยะผ่อนผันแล้ว`,
-      onAuthorized: (authorizerName, reason) => {
+      onAuthorized: async (authorizerName, reason) => {
         const updatedContract: PawnContract = {
           ...targetContract,
           status: 'forfeited',
@@ -298,48 +355,84 @@ export default function App() {
             },
           ],
         };
-        const updated = contracts.map(c => c.id === targetContract.id ? updatedContract : c);
-        setContracts(updated);
-        saveContracts(updated);
-        syncContractToCloud(updatedContract).catch(console.error);
+        try {
+          await syncContractToCloud(updatedContract);
+          const updated = contracts.map(c => c.id === targetContract.id ? updatedContract : c);
+          setContracts(updated);
+          saveContracts(updated);
+          console.log(`บันทึกแล้ว [Firestore]: contracts/${updatedContract.id} (หลุดจำนำ)`, updatedContract);
+          showToast(`บันทึกแล้ว [Firestore]: ยึดทรัพย์สิน ${updatedContract.contractNumber}`);
+        } catch (error) {
+          console.error('Error saving forfeited contract:', error);
+          const msg = error instanceof Error ? error.message : String(error);
+          alert(`❌ เกิดข้อผิดพลาดในการบันทึกสถานะหลุดจำนำลง Firebase:\n${msg}`);
+          showToast(`บันทึกล้มเหลว: ${msg}`, 'error');
+        }
       },
     });
     setIsSecurityOpen(true);
   };
 
   // Convert forfeited pawn into secondhand inventory
-  const handleConfirmConvertForfeited = (updatedContract: PawnContract, newBuyIn: SecondhandBuyIn) => {
-    // 1. Update contracts
-    const updatedContracts = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
-    setContracts(updatedContracts);
-    saveContracts(updatedContracts);
-    syncContractToCloud(updatedContract).catch(console.error);
+  const handleConfirmConvertForfeited = async (updatedContract: PawnContract, newBuyIn: SecondhandBuyIn) => {
+    try {
+      await syncContractToCloud(updatedContract);
+      await syncSecondhandToCloud(newBuyIn);
 
-    // 2. Append to secondhand buy-ins
-    const updatedBuyIns = [newBuyIn, ...secondhandBuyIns];
-    setSecondhandBuyIns(updatedBuyIns);
-    saveSecondhandBuyIns(updatedBuyIns);
-    syncSecondhandToCloud(newBuyIn).catch(console.error);
+      const updatedContracts = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
+      setContracts(updatedContracts);
+      saveContracts(updatedContracts);
 
-    if (activeContract?.id === updatedContract.id) {
-      setActiveContract(updatedContract);
+      const updatedBuyIns = [newBuyIn, ...secondhandBuyIns];
+      setSecondhandBuyIns(updatedBuyIns);
+      saveSecondhandBuyIns(updatedBuyIns);
+
+      console.log(`บันทึกแล้ว [Firestore]: contracts/${updatedContract.id} & secondhand_buyins/${newBuyIn.id}`);
+      showToast(`บันทึกแล้ว [Firestore]: แปลงเป็นสินค้ามือสอง ${newBuyIn.buyInNumber}`);
+
+      if (activeContract?.id === updatedContract.id) {
+        setActiveContract(updatedContract);
+      }
+    } catch (error) {
+      console.error('Error converting forfeited item:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      alert(`❌ เกิดข้อผิดพลาดในการแปลงสินค้าลง Firebase:\n${msg}`);
+      showToast(`แปลงสินค้าล้มเหลว: ${msg}`, 'error');
     }
   };
 
   // 6. Save edited contract
-  const handleSaveEditedContract = (updatedContract: PawnContract) => {
-    const updated = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
-    setContracts(updated);
-    saveContracts(updated);
-    syncContractToCloud(updatedContract).catch(console.error);
-    setActiveContract(updatedContract);
+  const handleSaveEditedContract = async (updatedContract: PawnContract) => {
+    try {
+      await syncContractToCloud(updatedContract);
+      const updated = contracts.map(c => c.id === updatedContract.id ? updatedContract : c);
+      setContracts(updated);
+      saveContracts(updated);
+      console.log(`บันทึกแล้ว [Firestore]: contracts/${updatedContract.id} (แก้ไขสาระสัญญา)`, updatedContract);
+      showToast(`บันทึกแล้ว [Firestore]: แก้ไขสัญญา ${updatedContract.contractNumber}`);
+      setActiveContract(updatedContract);
+    } catch (error) {
+      console.error('Error saving edited contract to Firebase:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      alert(`❌ เกิดข้อผิดพลาดในการบันทึกการแก้ไขสัญญาลง Firebase:\n${msg}`);
+      showToast(`แก้ไขสัญญาล้มเหลว: ${msg}`, 'error');
+    }
   };
 
   // 7. Save Settings
-  const handleSaveSettings = (newSettings: ShopSettings) => {
-    setSettings(newSettings);
-    saveSettings(newSettings);
-    syncSettingsToCloud(newSettings).catch(console.error);
+  const handleSaveSettings = async (newSettings: ShopSettings) => {
+    try {
+      await syncSettingsToCloud(newSettings);
+      setSettings(newSettings);
+      saveSettings(newSettings);
+      console.log(`บันทึกแล้ว [Firestore]: settings/current`, newSettings);
+      showToast('บันทึกแล้ว [Firestore]: ตั้งค่าร้านค้า');
+    } catch (error) {
+      console.error('Error saving settings to Firebase:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      alert(`❌ เกิดข้อผิดพลาดในการบันทึกการตั้งค่าลง Firebase:\n${msg}`);
+      showToast(`บันทึกการตั้งค่าล้มเหลว: ${msg}`, 'error');
+    }
   };
 
   const handleSaveUsers = (newUsers: UserAccount[]) => {
@@ -348,17 +441,26 @@ export default function App() {
   };
 
   // 8. Save Customer from CustomerModal
-  const handleSaveCustomer = (newOrUpdatedCust: Customer) => {
-    const exists = customers.some(c => c.id === newOrUpdatedCust.id);
-    let updated: Customer[];
-    if (exists) {
-      updated = customers.map(c => c.id === newOrUpdatedCust.id ? newOrUpdatedCust : c);
-    } else {
-      updated = [newOrUpdatedCust, ...customers];
+  const handleSaveCustomer = async (newOrUpdatedCust: Customer) => {
+    try {
+      await syncCustomerToCloud(newOrUpdatedCust);
+      const exists = customers.some(c => c.id === newOrUpdatedCust.id);
+      let updated: Customer[];
+      if (exists) {
+        updated = customers.map(c => c.id === newOrUpdatedCust.id ? newOrUpdatedCust : c);
+      } else {
+        updated = [newOrUpdatedCust, ...customers];
+      }
+      setCustomers(updated);
+      saveCustomers(updated);
+      console.log(`บันทึกแล้ว [Firestore]: customers/${newOrUpdatedCust.id}`, newOrUpdatedCust);
+      showToast(`บันทึกแล้ว [Firestore]: ข้อมูลลูกค้า ${newOrUpdatedCust.firstName} ${newOrUpdatedCust.lastName}`);
+    } catch (error) {
+      console.error('Error saving customer to Firebase:', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      alert(`❌ เกิดข้อผิดพลาดในการบันทึกข้อมูลลูกค้าลง Firebase:\n${msg}`);
+      showToast(`บันทึกข้อมูลลูกค้าล้มเหลว: ${msg}`, 'error');
     }
-    setCustomers(updated);
-    saveCustomers(updated);
-    syncCustomerToCloud(newOrUpdatedCust).catch(console.error);
   };
 
   return (
@@ -720,6 +822,26 @@ export default function App() {
           onConfirmConvert={handleConfirmConvertForfeited}
           onNavigateToSecondhand={() => setCurrentTab('secondhand')}
         />
+      )}
+
+      {/* Toast Notification for Confirmation */}
+      {toast && (
+        <div
+          className={`fixed bottom-5 right-5 z-[100] px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-xs sm:text-sm font-semibold transition-all duration-200 animate-in fade-in slide-in-from-bottom-3 no-print ${
+            toast.type === 'success'
+              ? 'bg-slate-900 text-emerald-300 border border-emerald-500/80 shadow-emerald-950/40'
+              : 'bg-rose-950 text-rose-200 border border-rose-500 shadow-rose-950/40'
+          }`}
+        >
+          <span className="text-base">{toast.type === 'success' ? '✅' : '❌'}</span>
+          <span>{toast.message}</span>
+          <button
+            onClick={() => setToast(null)}
+            className="ml-2 text-xs opacity-70 hover:opacity-100 cursor-pointer p-1 rounded"
+          >
+            ✕
+          </button>
+        </div>
       )}
     </div>
   );
