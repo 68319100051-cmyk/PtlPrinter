@@ -271,7 +271,7 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
       hasBag,
       isICloudOrPasscodeCleared: isICloudCleared,
       checklist,
-      defectsNotes: defectsNotes.trim() || undefined,
+      defectsNotes: defectsNotes.trim() || '',
     };
 
     const nextBuyInNo = generateNextBuyInNumber(existingBuyIns);

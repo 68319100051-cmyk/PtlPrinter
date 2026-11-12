@@ -63,7 +63,7 @@ export const InterestPaymentModal: React.FC<InterestPaymentModalProps> = ({
       newDueDate,
       recordedBy: currentUser.name,
       paymentMethod,
-      note: note.trim() || undefined,
+      note: note.trim() || '',
     };
 
     // Calculate new status

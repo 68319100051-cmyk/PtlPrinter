@@ -368,56 +368,66 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
       description: itemDescription.trim() || itemName,
       estimatedValue: estimatedValue || loanAmount * 1.3,
       photos,
-      notebook: category === 'notebook' ? {
-        brand: nbBrand,
-        model: nbModel,
-        serialNumber: nbSerial.trim().toUpperCase(),
-        processor: nbProcessor,
-        ramGb: nbRam,
-        storage: nbStorage,
-        gpu: nbGpu,
-        batteryHealth: nbBattery,
-        hasCharger: nbHasCharger,
-        hasBag: nbHasBag,
-        icloudStatus: nbIcloudStatus,
-      } : undefined,
-      computer: category === 'computer' ? {
-        brandOrCustom: pcBrandOrCustom,
-        modelOrCase: pcModelOrCase,
-        processor: pcProcessor,
-        ramGb: pcRam,
-        storage: pcStorage,
-        gpu: pcGpu,
-        monitor: pcMonitor,
-        accessories: pcAccessories.split(',').map(s => s.trim()).filter(Boolean),
-      } : undefined,
-      printer: category === 'printer' ? {
-        brand: prBrand,
-        model: prModel,
-        serialNumber: prSerial.trim().toUpperCase(),
-        printerType: prType,
-        inkSystem: prInkSystem,
-        headCondition: prHeadCondition,
-        hasPowerCable: prHasPowerCable,
-        hasUsbCable: prHasUsbCable,
-      } : undefined,
-      phone: category === 'phone' ? {
-        brand: phoneBrand,
-        model: phoneModel,
-        storageGb: phoneStorage,
-        imei: phoneImei.trim(),
-        serialNumber: phoneSerialNumber.trim(),
-        accessories: phoneAccessories.split(',').map(s => s.trim()).filter(Boolean),
-        icloudStatus: phoneIcloudStatus,
-      } : undefined,
-      itGadget: category === 'gadget_it' ? {
-        gadgetType: gtType,
-        brand: gtBrand,
-        model: gtModel,
-        serialNumber: gtSerial.trim(),
-        specsSummary: gtSpecs,
-        accessories: [],
-      } : undefined,
+      ...(category === 'notebook' ? {
+        notebook: {
+          brand: nbBrand,
+          model: nbModel,
+          serialNumber: nbSerial.trim().toUpperCase(),
+          processor: nbProcessor,
+          ramGb: nbRam,
+          storage: nbStorage,
+          gpu: nbGpu,
+          batteryHealth: nbBattery,
+          hasCharger: nbHasCharger,
+          hasBag: nbHasBag,
+          icloudStatus: nbIcloudStatus,
+        }
+      } : {}),
+      ...(category === 'computer' ? {
+        computer: {
+          brandOrCustom: pcBrandOrCustom,
+          modelOrCase: pcModelOrCase,
+          processor: pcProcessor,
+          ramGb: pcRam,
+          storage: pcStorage,
+          gpu: pcGpu,
+          monitor: pcMonitor,
+          accessories: pcAccessories.split(',').map(s => s.trim()).filter(Boolean),
+        }
+      } : {}),
+      ...(category === 'printer' ? {
+        printer: {
+          brand: prBrand,
+          model: prModel,
+          serialNumber: prSerial.trim().toUpperCase(),
+          printerType: prType,
+          inkSystem: prInkSystem,
+          headCondition: prHeadCondition,
+          hasPowerCable: prHasPowerCable,
+          hasUsbCable: prHasUsbCable,
+        }
+      } : {}),
+      ...(category === 'phone' ? {
+        phone: {
+          brand: phoneBrand,
+          model: phoneModel,
+          storageGb: phoneStorage,
+          imei: phoneImei.trim(),
+          serialNumber: phoneSerialNumber.trim(),
+          accessories: phoneAccessories.split(',').map(s => s.trim()).filter(Boolean),
+          icloudStatus: phoneIcloudStatus,
+        }
+      } : {}),
+      ...(category === 'gadget_it' ? {
+        itGadget: {
+          gadgetType: gtType,
+          brand: gtBrand,
+          model: gtModel,
+          serialNumber: gtSerial.trim(),
+          specsSummary: gtSpecs,
+          accessories: [],
+        }
+      } : {}),
     };
 
     if (durationMonths <= 0 && durationDays <= 0) {

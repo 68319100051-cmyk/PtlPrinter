@@ -14,13 +14,40 @@ import { saveContracts, saveCustomers, saveSettings, saveSecondhandBuyIns } from
 export type SyncStatus = 'connecting' | 'connected' | 'offline' | 'syncing' | 'error';
 
 /**
+ * Recursively removes all `undefined` values from objects and arrays
+ * Firestore strictly rejects documents containing `undefined` with error:
+ * "Unsupported field value: undefined"
+ */
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) {
+    return null as any;
+  }
+  if (Array.isArray(data)) {
+    return data
+      .filter((item) => item !== undefined)
+      .map((item) => sanitizeForFirestore(item)) as any;
+  }
+  if (typeof data === 'object') {
+    const clean: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data as Record<string, any>)) {
+      if (value !== undefined) {
+        clean[key] = sanitizeForFirestore(value);
+      }
+    }
+    return clean as T;
+  }
+  return data;
+}
+
+/**
  * Sync individual contract to Firestore (save / update single document)
  */
 export async function syncContractToCloud(contract: PawnContract): Promise<string> {
   const path = `contracts/${contract.id}`;
   try {
-    await setDoc(doc(db, 'contracts', contract.id), contract);
-    console.log(`บันทึกแล้ว [Firestore]: ${path}`, contract);
+    const cleanData = sanitizeForFirestore(contract);
+    await setDoc(doc(db, 'contracts', contract.id), cleanData);
+    console.log(`บันทึกแล้ว [Firestore]: ${path}`, cleanData);
     return path;
   } catch (err) {
     console.error(`บันทึกไม่สำเร็จ [Firestore]: ${path}`, err);
@@ -49,8 +76,9 @@ export async function deleteContractFromCloud(contractId: string): Promise<strin
 export async function syncCustomerToCloud(customer: Customer): Promise<string> {
   const path = `customers/${customer.id}`;
   try {
-    await setDoc(doc(db, 'customers', customer.id), customer);
-    console.log(`บันทึกแล้ว [Firestore]: ${path}`, customer);
+    const cleanData = sanitizeForFirestore(customer);
+    await setDoc(doc(db, 'customers', customer.id), cleanData);
+    console.log(`บันทึกแล้ว [Firestore]: ${path}`, cleanData);
     return path;
   } catch (err) {
     console.error(`บันทึกไม่สำเร็จ [Firestore]: ${path}`, err);
@@ -79,8 +107,9 @@ export async function deleteCustomerFromCloud(customerId: string): Promise<strin
 export async function syncSettingsToCloud(settings: ShopSettings): Promise<string> {
   const path = 'settings/current';
   try {
-    await setDoc(doc(db, 'settings', 'current'), settings);
-    console.log(`บันทึกแล้ว [Firestore]: ${path}`, settings);
+    const cleanData = sanitizeForFirestore(settings);
+    await setDoc(doc(db, 'settings', 'current'), cleanData);
+    console.log(`บันทึกแล้ว [Firestore]: ${path}`, cleanData);
     return path;
   } catch (err) {
     console.error(`บันทึกไม่สำเร็จ [Firestore]: ${path}`, err);
@@ -94,8 +123,9 @@ export async function syncSettingsToCloud(settings: ShopSettings): Promise<strin
 export async function syncSecondhandToCloud(item: SecondhandBuyIn): Promise<string> {
   const path = `secondhand_buyins/${item.id}`;
   try {
-    await setDoc(doc(db, 'secondhand_buyins', item.id), item);
-    console.log(`บันทึกแล้ว [Firestore]: ${path}`, item);
+    const cleanData = sanitizeForFirestore(item);
+    await setDoc(doc(db, 'secondhand_buyins', item.id), cleanData);
+    console.log(`บันทึกแล้ว [Firestore]: ${path}`, cleanData);
     return path;
   } catch (err) {
     console.error(`บันทึกไม่สำเร็จ [Firestore]: ${path}`, err);
@@ -165,7 +195,8 @@ export function initFirebaseSync(callbacks: {
         onStatusChanged('syncing', 'กำลังอัปโหลดข้อมูลเริ่มต้นไปยัง Firebase Cloud...');
         console.log('Firebase contracts ว่างเปล่า กำลังอัปโหลดข้อมูลเริ่มต้น...');
         for (const c of initialLocalContracts) {
-          await setDoc(doc(db, 'contracts', c.id), c);
+          const clean = sanitizeForFirestore(c);
+          await setDoc(doc(db, 'contracts', c.id), clean);
           console.log(`บันทึกข้อมูลเริ่มต้นแล้ว [Firestore]: contracts/${c.id}`);
         }
       }
@@ -186,7 +217,8 @@ export function initFirebaseSync(callbacks: {
       } else if (customersSnap && customersSnap.empty && initialLocalCustomers.length > 0) {
         console.log('Firebase customers ว่างเปล่า กำลังอัปโหลดข้อมูลเริ่มต้น...');
         for (const cust of initialLocalCustomers) {
-          await setDoc(doc(db, 'customers', cust.id), cust);
+          const clean = sanitizeForFirestore(cust);
+          await setDoc(doc(db, 'customers', cust.id), clean);
           console.log(`บันทึกข้อมูลเริ่มต้นแล้ว [Firestore]: customers/${cust.id}`);
         }
       }
@@ -207,7 +239,8 @@ export function initFirebaseSync(callbacks: {
           console.log('โหลดการตั้งค่าร้านจาก Firebase Firestore สำเร็จ (Path: settings/current)');
         }
       } else if (settingsSnap && settingsSnap.empty) {
-        await setDoc(doc(db, 'settings', 'current'), initialLocalSettings);
+        const clean = sanitizeForFirestore(initialLocalSettings);
+        await setDoc(doc(db, 'settings', 'current'), clean);
         console.log('บันทึกข้อมูลเริ่มต้นแล้ว [Firestore]: settings/current');
       }
 
@@ -226,7 +259,8 @@ export function initFirebaseSync(callbacks: {
         console.log(`โหลดข้อมูลสินค้ามือสองจาก Firebase Firestore สำเร็จ: ${loadedSecondhand.length} รายการ (Path: secondhand_buyins)`);
       } else if (secondhandSnap && secondhandSnap.empty && initialLocalSecondhand.length > 0) {
         for (const item of initialLocalSecondhand) {
-          await setDoc(doc(db, 'secondhand_buyins', item.id), item);
+          const clean = sanitizeForFirestore(item);
+          await setDoc(doc(db, 'secondhand_buyins', item.id), clean);
           console.log(`บันทึกข้อมูลเริ่มต้นแล้ว [Firestore]: secondhand_buyins/${item.id}`);
         }
       }
