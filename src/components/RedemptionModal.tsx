@@ -24,14 +24,35 @@ export const RedemptionModal: React.FC<RedemptionModalProps> = ({
   const isOverdue = daysDiff < 0;
   const overdueDays = isOverdue ? Math.abs(daysDiff) : 0;
 
-  // Accrued interest estimation (1 month if not overdue, or pro-rated / overdue fee)
   const monthlyInterest = (contract.loanAmount * contract.monthlyInterestRate) / 100;
+
+  // Calculate actual elapsed days from contract start or last interest renewal date
+  const lastPayment = contract.interestPayments && contract.interestPayments.length > 0
+    ? contract.interestPayments[contract.interestPayments.length - 1]
+    : null;
+  const baseDateStr = lastPayment?.date || contract.startDate;
+  const baseDate = new Date(baseDateStr);
+  const today = new Date();
+  const diffTime = Math.max(0, today.getTime() - baseDate.getTime());
+  const elapsedDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+  const dailyProratedInterest = Math.max(10, Math.round((monthlyInterest / 30) * elapsedDays));
+
+  const [calcMode, setCalcMode] = useState<'full' | 'daily'>('full');
   const [interestPaid, setInterestPaid] = useState<number>(monthlyInterest);
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const initialLateFee = isOverdue ? Math.min(overdueDays * (settings.lateFeePerDay || 50), 1000) : 0;
   const [extraFee, setExtraFee] = useState<number>(initialLateFee);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('cash');
   const [note, setNote] = useState('');
+
+  const selectCalcMode = (mode: 'full' | 'daily') => {
+    setCalcMode(mode);
+    if (mode === 'full') {
+      setInterestPaid(monthlyInterest);
+    } else {
+      setInterestPaid(dailyProratedInterest);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -150,17 +171,46 @@ export const RedemptionModal: React.FC<RedemptionModalProps> = ({
               <span className="font-mono text-base">{formatCurrency(contract.loanAmount)}</span>
             </div>
 
-            <div className="flex justify-between items-center">
-              <span className="text-slate-600">๒. ดอกเบี้ยคงค้าง ({contract.monthlyInterestRate}% / เดือน):</span>
-              <div className="w-32">
-                <input
-                  type="number"
-                  min="0"
-                  step="10"
-                  value={interestPaid}
-                  onChange={(e) => setInterestPaid(parseFloat(e.target.value) || 0)}
-                  className="w-full px-2.5 py-1 text-right font-mono rounded-lg border border-slate-300 bg-white"
-                />
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <span className="text-slate-700 font-medium">๒. ดอกเบี้ยคงค้าง ({contract.monthlyInterestRate}% / เดือน):</span>
+                <div className="w-32">
+                  <input
+                    type="number"
+                    min="0"
+                    step="10"
+                    value={interestPaid}
+                    onChange={(e) => setInterestPaid(parseFloat(e.target.value) || 0)}
+                    className="w-full px-2.5 py-1 text-right font-mono font-bold rounded-lg border border-slate-300 bg-white"
+                  />
+                </div>
+              </div>
+
+              {/* Interest calculation options */}
+              <div className="flex flex-wrap items-center gap-1.5 mt-1 bg-white p-2 rounded-lg border border-slate-200">
+                <span className="text-[11px] text-slate-500 mr-1">วิธีคิดดอกเบี้ย:</span>
+                <button
+                  type="button"
+                  onClick={() => selectCalcMode('full')}
+                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
+                    calcMode === 'full'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  คิดเต็มงวด (฿{monthlyInterest.toLocaleString()})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectCalcMode('daily')}
+                  className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors cursor-pointer ${
+                    calcMode === 'daily'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  💵 ตามวันจริง ({elapsedDays} วัน = ฿{dailyProratedInterest.toLocaleString()})
+                </button>
               </div>
             </div>
 
