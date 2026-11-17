@@ -64,6 +64,10 @@
   break-inside: avoid;
 }
 
+.signature-block--no-qr {
+  justify-content: space-around;
+}
+
 @page {
   size: A5 portrait;      /* 148mm x 210mm */
   margin: 0;              /* ควบคุมขอบ 6mm ผ่าน .print-page container เอง */

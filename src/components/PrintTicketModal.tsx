@@ -117,7 +117,7 @@ interface A5SignatureBlockProps {
   leftRole: string;
   rightName: string;
   rightRole: string;
-  qrImageUrl: string;
+  qrImageUrl?: string;
 }
 
 const A5SignatureBlock: React.FC<A5SignatureBlockProps> = ({
@@ -127,8 +127,12 @@ const A5SignatureBlock: React.FC<A5SignatureBlockProps> = ({
   rightRole,
   qrImageUrl,
 }) => (
-  <div className="signature-block text-[9.5px] text-black">
-    <div className="flex-1 min-w-0 text-center">
+  <div
+    className={`signature-block text-[9.5px] text-black ${
+      qrImageUrl ? '' : 'signature-block--no-qr'
+    }`}
+  >
+    <div className={qrImageUrl ? 'flex-1 min-w-0 text-center' : 'w-[46mm] min-w-0 text-center'}>
       <div className="h-[14mm] border-b border-dotted border-black mx-2" />
       <div className="mt-1 font-semibold text-black break-words leading-snug">
         ({leftName})
@@ -141,7 +145,7 @@ const A5SignatureBlock: React.FC<A5SignatureBlockProps> = ({
       <span>ร้าน</span>
     </div>
 
-    <div className="flex-1 min-w-0 text-center">
+    <div className={qrImageUrl ? 'flex-1 min-w-0 text-center' : 'w-[46mm] min-w-0 text-center'}>
       <div className="h-[14mm] border-b border-dotted border-black mx-2" />
       <div className="mt-1 font-semibold text-black break-words leading-snug">
         ({rightName})
@@ -149,14 +153,16 @@ const A5SignatureBlock: React.FC<A5SignatureBlockProps> = ({
       <div className="text-[8.5px] text-black leading-snug">{rightRole}</div>
     </div>
 
-    <div className="flex flex-col items-center shrink-0">
-      <img
-        src={qrImageUrl}
-        alt="QR ตรวจสอบสัญญา"
-        className="w-[13.5mm] h-[13.5mm] border border-black rounded p-[1px] bg-white object-contain"
-      />
-      <span className="text-[7.5px] text-black mt-0.5 font-mono leading-none">สแกนตรวจสอบ</span>
-    </div>
+    {qrImageUrl && (
+      <div className="flex flex-col items-center shrink-0">
+        <img
+          src={qrImageUrl}
+          alt="QR ตรวจสอบสัญญา"
+          className="w-[13.5mm] h-[13.5mm] border border-black rounded p-[1px] bg-white object-contain"
+        />
+        <span className="text-[7.5px] text-black mt-0.5 font-mono leading-none">สแกนตรวจสอบ</span>
+      </div>
+    )}
   </div>
 );
 
@@ -198,10 +204,13 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
   const totalMonths = Math.max(0, contract.durationMonths || 0) + Math.max(0, contract.durationDays || 0) / 30;
   const periodInterest = Math.round(contract.loanAmount * (contract.monthlyInterestRate / 100) * (totalMonths || 1));
 
-  // Dynamic QR code verification URL / payload
-  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : '';
-  const qrVerificationUrl = `${currentOrigin}/?c=${encodeURIComponent(contract.contractNumber)}`;
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrVerificationUrl)}`;
+  // Dynamic QR code verification URL / payload (omitted for redemption receipt)
+  const shouldIncludeQr = format !== 'a5_redeem_receipt';
+  const qrImageUrl = shouldIncludeQr
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+        `${typeof window !== 'undefined' ? window.location.origin : ''}/?c=${encodeURIComponent(contract.contractNumber)}`
+      )}`
+    : undefined;
 
   const customerFullName = `${contract.customerSnapshot.prefix || ''}${contract.customerSnapshot.firstName} ${contract.customerSnapshot.lastName}`.trim();
   const staffOrManagerName = contract.createdBy || settings.ownerName || 'ผู้รับซื้อฝาก';
@@ -379,6 +388,9 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                 justify-content: space-between !important;
                 align-items: flex-end !important;
                 padding-top: 4mm !important;
+              }
+              .signature-block.signature-block--no-qr {
+                justify-content: space-around !important;
               }
             }
           `
@@ -823,7 +835,6 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                 leftRole="ผู้รับมอบทรัพย์สินคืน"
                 rightName={contract.redemption.recordedBy}
                 rightRole="ผู้ส่งมอบทรัพย์สิน / เจ้าหน้าที่"
-                qrImageUrl={qrImageUrl}
               />
             </div>
           )}
