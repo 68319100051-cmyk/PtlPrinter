@@ -27,6 +27,7 @@ import {
 } from '../types/buyIn';
 import { Customer, ShopSettings, UserAccount } from '../types/pawn';
 import { generateNextBuyInNumber } from '../utils/storage';
+import { RamPicker } from './RamPicker';
 
 interface BuyInLaptopModalProps {
   isOpen: boolean;
@@ -74,7 +75,6 @@ const GPU_PRESETS = [
   'Apple M Integrated GPU',
 ];
 
-const RAM_PRESETS = [4, 8, 16, 32, 64];
 const STORAGE_PRESETS = ['SSD 256GB NVMe', 'SSD 512GB NVMe', 'SSD 1TB NVMe', 'SSD 128GB + HDD 1TB'];
 
 const SAMPLE_LAPTOP_PHOTOS = [
@@ -770,22 +770,11 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
                     <label className="block text-slate-600 font-medium mb-1">
                       หน่วยความจำ (RAM)
                     </label>
-                    <div className="flex items-center gap-1.5">
-                      {RAM_PRESETS.map(r => (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => setRamGb(r)}
-                          className={`flex-1 py-1.5 rounded-lg text-xs font-mono font-bold transition-colors cursor-pointer ${
-                            ramGb === r
-                              ? 'bg-slate-900 text-amber-400 ring-2 ring-amber-400'
-                              : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-100'
-                          }`}
-                        >
-                          {r} GB
-                        </button>
-                      ))}
-                    </div>
+                    <RamPicker
+                      value={ramGb}
+                      onChange={setRamGb}
+                      accent="slate"
+                    />
                   </div>
 
                   <div>

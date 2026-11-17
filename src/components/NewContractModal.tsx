@@ -37,6 +37,7 @@ import {
 } from '../utils/thaiFormat';
 import { generateNextContractNumber } from '../utils/storage';
 import { checkSerial } from '../utils/serialCheck';
+import { RamPicker } from './RamPicker';
 
 interface NewContractModalProps {
   isOpen: boolean;
@@ -1332,27 +1333,15 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
                   </div>
                   <div data-has-error={Boolean(fieldErrors.nbRam)}>
                     <label className="block text-slate-700 font-semibold mb-1">หน่วยความจำ (RAM) *</label>
-                    <div className={`flex gap-1 p-0.5 rounded-lg ${
-                      fieldErrors.nbRam ? 'border border-rose-500 bg-rose-50/50' : ''
-                    }`}>
-                      {[8, 16, 32, 64].map(r => (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => {
-                            setNbRam(r);
-                            clearError('nbRam');
-                          }}
-                          className={`flex-1 py-1 rounded text-xs font-mono font-bold transition-colors cursor-pointer ${
-                            nbRam === r
-                              ? 'bg-amber-500 text-white shadow-xs'
-                              : 'bg-white border border-amber-200 text-slate-700 hover:bg-amber-100/60'
-                          }`}
-                        >
-                          {r}G
-                        </button>
-                      ))}
-                    </div>
+                    <RamPicker
+                      value={nbRam}
+                      onChange={(gb) => {
+                        setNbRam(gb);
+                        if (gb !== null) clearError('nbRam');
+                      }}
+                      hasError={Boolean(fieldErrors.nbRam)}
+                      accent="amber"
+                    />
                     {fieldErrors.nbRam && (
                       <p className="text-[10px] text-rose-600 mt-0.5 font-medium">{fieldErrors.nbRam}</p>
                     )}
@@ -1516,27 +1505,15 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                   <div data-has-error={Boolean(fieldErrors.pcRam)}>
                     <label className="block text-slate-700 font-semibold mb-1">RAM (GB) *</label>
-                    <div className={`flex gap-1 p-0.5 rounded-lg ${
-                      fieldErrors.pcRam ? 'border border-rose-500 bg-rose-50/50' : ''
-                    }`}>
-                      {[8, 16, 32, 64].map(r => (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => {
-                            setPcRam(r);
-                            clearError('pcRam');
-                          }}
-                          className={`flex-1 py-1 rounded text-xs font-mono font-bold transition-colors cursor-pointer ${
-                            pcRam === r
-                              ? 'bg-amber-500 text-white shadow-xs'
-                              : 'bg-white border border-indigo-200 text-slate-700 hover:bg-indigo-100/60'
-                          }`}
-                        >
-                          {r}G
-                        </button>
-                      ))}
-                    </div>
+                    <RamPicker
+                      value={pcRam}
+                      onChange={(gb) => {
+                        setPcRam(gb);
+                        if (gb !== null) clearError('pcRam');
+                      }}
+                      hasError={Boolean(fieldErrors.pcRam)}
+                      accent="indigo"
+                    />
                     {fieldErrors.pcRam && (
                       <p className="text-[10px] text-rose-600 mt-0.5 font-medium">{fieldErrors.pcRam}</p>
                     )}
