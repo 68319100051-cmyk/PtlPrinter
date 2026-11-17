@@ -129,6 +129,40 @@ export interface ContractAmendmentLog {
   changesSummary: string;
 }
 
+export interface FlaggedSerial {
+  id: string;
+  serial: string;          // เก็บแบบ normalize แล้ว
+  reason: 'stolen' | 'lost_report' | 'suspicious' | 'police_notice';
+  note: string;            // รายละเอียด เช่น เลขแจ้งความ ชื่อผู้แจ้ง
+  addedBy: string;
+  addedAt: string;         // ISO
+  active: boolean;         // ปิดแฟลกโดยไม่ลบ เพื่อเก็บประวัติ
+}
+
+export type SerialCheckLevel = 'block' | 'warn' | 'info';
+
+export interface SerialCheckMatch {
+  level: SerialCheckLevel;
+  source:
+    | 'flagged_serials'
+    | 'active_contract'
+    | 'closed_contract'
+    | 'archived_contract'
+    | 'secondhand_buyin'
+    | 'same_customer'
+    | 'imei_luhn';
+  label: string;
+  detail: string;
+  refId: string;
+}
+
+export interface ContractSerialCheck {
+  checkedAt: string;
+  results: SerialCheckMatch[];
+  overriddenBy?: string;
+  overrideReason?: string;
+}
+
 export interface PawnContract {
   id: string;
   contractNumber: string; // e.g. AC-6911001
@@ -161,6 +195,7 @@ export interface PawnContract {
   amendmentLogs: ContractAmendmentLog[];
   storageLocation?: string; // ที่จัดเก็บ เช่น ตู้ไอที ชั้น 2 ล็อกเกอร์ B-03, โซนคอมพิวเตอร์
   note?: string;
+  serialCheck?: ContractSerialCheck;
   createdAt: string;
   createdBy: string;
 }

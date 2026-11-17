@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { X, Printer, FileText, Receipt, Scroll, CheckCircle2 } from 'lucide-react';
+import QRCode from 'qrcode';
 import { PawnContract, ShopSettings, InterestPayment } from '../types/pawn';
 import {
   formatCurrency,
@@ -117,6 +118,7 @@ interface A5SignatureBlockProps {
   leftRole: string;
   rightName: string;
   rightRole: string;
+  showQr?: boolean;
   qrImageUrl?: string;
 }
 
@@ -125,14 +127,15 @@ const A5SignatureBlock: React.FC<A5SignatureBlockProps> = ({
   leftRole,
   rightName,
   rightRole,
+  showQr = false,
   qrImageUrl,
 }) => (
   <div
     className={`signature-block text-[9.5px] text-black ${
-      qrImageUrl ? '' : 'signature-block--no-qr'
+      showQr ? '' : 'signature-block--no-qr'
     }`}
   >
-    <div className={qrImageUrl ? 'flex-1 min-w-0 text-center' : 'w-[46mm] min-w-0 text-center'}>
+    <div className={showQr ? 'flex-1 min-w-0 text-center' : 'w-[46mm] min-w-0 text-center'}>
       <div className="h-[14mm] border-b border-dotted border-black mx-2" />
       <div className="mt-1 font-semibold text-black break-words leading-snug">
         ({leftName})
@@ -145,7 +148,7 @@ const A5SignatureBlock: React.FC<A5SignatureBlockProps> = ({
       <span>ร้าน</span>
     </div>
 
-    <div className={qrImageUrl ? 'flex-1 min-w-0 text-center' : 'w-[46mm] min-w-0 text-center'}>
+    <div className={showQr ? 'flex-1 min-w-0 text-center' : 'w-[46mm] min-w-0 text-center'}>
       <div className="h-[14mm] border-b border-dotted border-black mx-2" />
       <div className="mt-1 font-semibold text-black break-words leading-snug">
         ({rightName})
@@ -153,13 +156,17 @@ const A5SignatureBlock: React.FC<A5SignatureBlockProps> = ({
       <div className="text-[8.5px] text-black leading-snug">{rightRole}</div>
     </div>
 
-    {qrImageUrl && (
+    {showQr && (
       <div className="flex flex-col items-center shrink-0">
-        <img
-          src={qrImageUrl}
-          alt="QR ตรวจสอบสัญญา"
-          className="w-[13.5mm] h-[13.5mm] border border-black rounded p-[1px] bg-white object-contain"
-        />
+        {qrImageUrl ? (
+          <img
+            src={qrImageUrl}
+            alt="QR ตรวจสอบสัญญา"
+            className="w-[13.5mm] h-[13.5mm] border border-black rounded p-[1px] bg-white object-contain"
+          />
+        ) : (
+          <div className="w-[13.5mm] h-[13.5mm] border border-black rounded bg-white" />
+        )}
         <span className="text-[7.5px] text-black mt-0.5 font-mono leading-none">สแกนตรวจสอบ</span>
       </div>
     )}
@@ -183,12 +190,50 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
   }, []);
 
   const [format, setFormat] = useState<PrintFormat>(() => resolveFormat(defaultMode));
+  const [qrDataUrl, setQrDataUrl] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     if (isOpen) {
       setFormat(resolveFormat(defaultMode));
     }
   }, [isOpen, defaultMode, resolveFormat]);
+
+  // Generate QR code locally in-browser (zero external network request; omitted for redemption receipt)
+  useEffect(() => {
+    if (!isOpen || format === 'a5_redeem_receipt') {
+      setQrDataUrl(undefined);
+      return;
+    }
+
+    let cancelled = false;
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    const verificationUrl = `${origin}/?c=${encodeURIComponent(contract.contractNumber)}`;
+
+    QRCode.toDataURL(verificationUrl, {
+      width: 200,
+      margin: 1,
+      color: {
+        dark: '#000000',
+        light: '#ffffff',
+      },
+      errorCorrectionLevel: 'M',
+    })
+      .then((url) => {
+        if (!cancelled) {
+          setQrDataUrl(url);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to generate local QR code:', err);
+        if (!cancelled) {
+          setQrDataUrl(undefined);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, format, contract.contractNumber]);
 
   if (!isOpen) return null;
 
@@ -203,14 +248,6 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
   const monthlyInterest = (contract.loanAmount * contract.monthlyInterestRate) / 100;
   const totalMonths = Math.max(0, contract.durationMonths || 0) + Math.max(0, contract.durationDays || 0) / 30;
   const periodInterest = Math.round(contract.loanAmount * (contract.monthlyInterestRate / 100) * (totalMonths || 1));
-
-  // Dynamic QR code verification URL / payload (omitted for redemption receipt)
-  const shouldIncludeQr = format !== 'a5_redeem_receipt';
-  const qrImageUrl = shouldIncludeQr
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
-        `${typeof window !== 'undefined' ? window.location.origin : ''}/?c=${encodeURIComponent(contract.contractNumber)}`
-      )}`
-    : undefined;
 
   const customerFullName = `${contract.customerSnapshot.prefix || ''}${contract.customerSnapshot.firstName} ${contract.customerSnapshot.lastName}`.trim();
   const staffOrManagerName = contract.createdBy || settings.ownerName || 'ผู้รับซื้อฝาก';
@@ -486,7 +523,7 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
             }`}
           >
             <Receipt className="w-3.5 h-3.5" />
-            ตั๋วสลิปย่อ (A5)
+            ตั๋วสลิป (พิมพ์ A5)
           </button>
 
           <button
@@ -499,7 +536,7 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
             }`}
           >
             <Scroll className="w-3.5 h-3.5" />
-            สัญญาขายฝากเต็มฉบับ (A5)
+            สัญญาเต็มฉบับ (A5 หลายหน้า)
           </button>
         </div>
 
@@ -635,7 +672,8 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                 leftRole="ผู้ขายฝาก / จำนำ"
                 rightName={staffOrManagerName}
                 rightRole="ผู้รับซื้อฝาก / จนท."
-                qrImageUrl={qrImageUrl}
+                showQr
+                qrImageUrl={qrDataUrl}
               />
             </div>
           )}
@@ -746,7 +784,8 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                     leftRole="ผู้ชำระเงิน"
                     rightName={latestInterestReceipt.recordedBy}
                     rightRole="ผู้รับเงิน / แคชเชียร์"
-                    qrImageUrl={qrImageUrl}
+                    showQr
+                    qrImageUrl={qrDataUrl}
                   />
                 </>
               )}
@@ -949,7 +988,8 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                 leftRole="ผู้ขายฝาก / จำนำ"
                 rightName={staffOrManagerName}
                 rightRole="เจ้าหน้าที่ผู้ทำรายการ"
-                qrImageUrl={qrImageUrl}
+                showQr
+                qrImageUrl={qrDataUrl}
               />
             </div>
           )}
@@ -1108,7 +1148,8 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                   leftRole="ผู้ขายฝาก / จำนำ"
                   rightName={staffOrManagerName}
                   rightRole="ผู้รับซื้อฝาก / ผู้จัดการ"
-                  qrImageUrl={qrImageUrl}
+                  showQr
+                  qrImageUrl={qrDataUrl}
                 />
               </div>
             </div>

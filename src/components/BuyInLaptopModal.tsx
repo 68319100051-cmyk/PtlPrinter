@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   X,
   Laptop,
@@ -94,75 +94,135 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
   currentUser,
   initialCustomer,
 }) => {
+  const formRef = useRef<HTMLFormElement>(null);
+
   // Step navigation (mobile friendly tab)
   const [activeTab, setActiveTab] = useState<'seller' | 'specs' | 'pricing'>('seller');
 
   // Seller selection / creation
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string>(initialCustomer ? initialCustomer.id : '');
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
   const [customerSearch, setCustomerSearch] = useState<string>('');
   const [isNewCustomer, setIsNewCustomer] = useState<boolean>(false);
-  const [citizenId, setCitizenId] = useState<string>(initialCustomer ? initialCustomer.citizenId : '');
-  const [prefix, setPrefix] = useState<string>(initialCustomer ? initialCustomer.prefix : 'นาย');
-  const [firstName, setFirstName] = useState<string>(initialCustomer ? initialCustomer.firstName : '');
-  const [lastName, setLastName] = useState<string>(initialCustomer ? initialCustomer.lastName : '');
-  const [phone, setPhone] = useState<string>(initialCustomer ? initialCustomer.phone : '');
-  const [address, setAddress] = useState<string>(initialCustomer ? initialCustomer.address : 'อำเภอเมือง จังหวัดพัทลุง 93000');
-
-  useEffect(() => {
-    if (isOpen && initialCustomer) {
-      setSelectedCustomerId(initialCustomer.id);
-      setIsNewCustomer(false);
-      setCitizenId(initialCustomer.citizenId);
-      setFirstName(initialCustomer.firstName);
-      setLastName(initialCustomer.lastName);
-      setPrefix(initialCustomer.prefix);
-      setPhone(initialCustomer.phone);
-      setAddress(initialCustomer.address);
-    }
-  }, [isOpen, initialCustomer]);
+  const [citizenId, setCitizenId] = useState<string>('');
+  const [prefix, setPrefix] = useState<string>('');
+  const [firstName, setFirstName] = useState<string>('');
+  const [lastName, setLastName] = useState<string>('');
+  const [phone, setPhone] = useState<string>('');
+  const [address, setAddress] = useState<string>('');
 
   // Notebook specs
-  const [brand, setBrand] = useState<NotebookBrand | string>('Asus');
-  const [model, setModel] = useState<string>('TUF Gaming A15');
+  const [brand, setBrand] = useState<NotebookBrand | string>('');
+  const [model, setModel] = useState<string>('');
   const [serialNumber, setSerialNumber] = useState<string>('');
-  const [processor, setProcessor] = useState<string>('AMD Ryzen 7 5800H');
-  const [ramGb, setRamGb] = useState<number>(16);
-  const [storage, setStorage] = useState<string>('SSD 512GB NVMe');
-  const [gpu, setGpu] = useState<string>('NVIDIA GeForce RTX 3050 (4GB)');
-  const [screenSize, setScreenSize] = useState<string>('15.6" FHD 144Hz');
-  const [batteryStatus, setBatteryStatus] = useState<BatteryCondition>('good');
-  const [cosmeticGrade, setCosmeticGrade] = useState<CosmeticGrade>('A');
-  const [hasCharger, setHasCharger] = useState<boolean>(true);
+  const [processor, setProcessor] = useState<string>('');
+  const [ramGb, setRamGb] = useState<number | null>(null);
+  const [storage, setStorage] = useState<string>('');
+  const [gpu, setGpu] = useState<string>('');
+  const [screenSize, setScreenSize] = useState<string>('');
+  const [batteryStatus, setBatteryStatus] = useState<BatteryCondition | ''>('');
+  const [cosmeticGrade, setCosmeticGrade] = useState<CosmeticGrade | ''>('');
+  const [hasCharger, setHasCharger] = useState<boolean>(false);
   const [hasBox, setHasBox] = useState<boolean>(false);
-  const [hasBag, setHasBag] = useState<boolean>(true);
-  const [isICloudCleared, setIsICloudCleared] = useState<boolean>(true);
+  const [hasBag, setHasBag] = useState<boolean>(false);
+  const [isICloudCleared, setIsICloudCleared] = useState<boolean>(false);
   const [defectsNotes, setDefectsNotes] = useState<string>('');
-  const [photoUrl, setPhotoUrl] = useState<string>(SAMPLE_LAPTOP_PHOTOS[0]);
+  const [photoUrl, setPhotoUrl] = useState<string>('');
 
-  // Hardware checklist
+  // Hardware checklist (all unchecked by default)
   const [checklist, setChecklist] = useState({
-    keyboard: true,
-    screen: true,
-    touchpad: true,
-    wifiBluetooth: true,
-    webcamMic: true,
-    speakers: true,
-    usbPorts: true,
-    chargingPort: true,
+    keyboard: false,
+    screen: false,
+    touchpad: false,
+    wifiBluetooth: false,
+    webcamMic: false,
+    speakers: false,
+    usbPorts: false,
+    chargingPort: false,
   });
 
   // Pricing & Legal
-  const [purchasePrice, setPurchasePrice] = useState<number>(10000);
-  const [targetSalePrice, setTargetSalePrice] = useState<number>(13500);
+  const [purchasePrice, setPurchasePrice] = useState<number>(0);
+  const [targetSalePrice, setTargetSalePrice] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('transfer');
-  const [legalDeclaration, setLegalDeclaration] = useState<boolean>(true);
+  const [legalDeclaration, setLegalDeclaration] = useState<boolean>(false);
   const [formError, setFormError] = useState<string>('');
+
+  /**
+   * ฟังก์ชันรีเซ็ตฟอร์มกลางสำหรับโมดัลรับซื้อโน็ตบุ้คมือสอง
+   * ป้องกันค่าเดิมหรือค่าตัวอย่างค้างข้ามรายการเมื่อเปิดโมดัลใหม่
+   */
+  const resetBuyInForm = useCallback(() => {
+    setActiveTab('seller');
+
+    // Seller fields
+    setSelectedCustomerId(initialCustomer ? initialCustomer.id : '');
+    setCustomerSearch('');
+    setIsNewCustomer(false);
+    setCitizenId(initialCustomer ? initialCustomer.citizenId : '');
+    setPrefix(initialCustomer ? initialCustomer.prefix : '');
+    setFirstName(initialCustomer ? initialCustomer.firstName : '');
+    setLastName(initialCustomer ? initialCustomer.lastName : '');
+    setPhone(initialCustomer ? initialCustomer.phone : '');
+    setAddress(initialCustomer ? initialCustomer.address : '');
+
+    // Notebook specs (strictly blank)
+    setBrand('');
+    setModel('');
+    setSerialNumber('');
+    setProcessor('');
+    setRamGb(null);
+    setStorage('');
+    setGpu('');
+    setScreenSize('');
+    setBatteryStatus('');
+    setCosmeticGrade('');
+    setHasCharger(false);
+    setHasBox(false);
+    setHasBag(false);
+    setIsICloudCleared(false);
+    setDefectsNotes('');
+    setPhotoUrl('');
+
+    // Hardware checklist (all unchecked)
+    setChecklist({
+      keyboard: false,
+      screen: false,
+      touchpad: false,
+      wifiBluetooth: false,
+      webcamMic: false,
+      speakers: false,
+      usbPorts: false,
+      chargingPort: false,
+    });
+
+    // Pricing & Legal
+    setPurchasePrice(0);
+    setTargetSalePrice(0);
+    setPaymentMethod('transfer');
+    setLegalDeclaration(false);
+    setFormError('');
+
+    if (formRef.current) {
+      formRef.current.reset();
+    }
+  }, [initialCustomer]);
+
+  useEffect(() => {
+    if (isOpen) {
+      resetBuyInForm();
+    }
+  }, [isOpen, resetBuyInForm]);
+
+  const handleClose = () => {
+    resetBuyInForm();
+    onClose();
+  };
 
   // Auto-generate S/N sample helper
   const handleGenerateSampleSN = () => {
     const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
     const randomSeq = Array.from({ length: 10 }, () => letters[Math.floor(Math.random() * letters.length)] + Math.floor(Math.random() * 10)).join('').slice(0, 12);
-    setSerialNumber(`${brand.slice(0, 2).toUpperCase()}${randomSeq}`);
+    setSerialNumber(`${(brand || 'NB').slice(0, 2).toUpperCase()}${randomSeq}`);
   };
 
   // Pre-fill when choosing existing customer
@@ -201,8 +261,33 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
       setActiveTab('seller');
       return;
     }
+    if (!brand.trim()) {
+      setFormError('กรุณาเลือกยี่ห้อโน็ตบุ้ค');
+      setActiveTab('specs');
+      return;
+    }
+    if (!model.trim()) {
+      setFormError('กรุณาระบุรุ่น / ซีรีส์ของโน็ตบุ้ค');
+      setActiveTab('specs');
+      return;
+    }
     if (!serialNumber.trim()) {
       setFormError('กรุณาระบุหมายเลขประจำเครื่อง (S/N)');
+      setActiveTab('specs');
+      return;
+    }
+    if (ramGb === null) {
+      setFormError('กรุณาเลือกขนาดหน่วยความจำ (RAM)');
+      setActiveTab('specs');
+      return;
+    }
+    if (!batteryStatus) {
+      setFormError('กรุณาเลือกสถานะแบตเตอรี่');
+      setActiveTab('specs');
+      return;
+    }
+    if (!cosmeticGrade) {
+      setFormError('กรุณาเลือกเกรดสภาพภายนอก');
       setActiveTab('specs');
       return;
     }
@@ -219,6 +304,7 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
 
     let customerObj: Customer;
     let newCustToSave: Customer | undefined = undefined;
+    const finalPrefix = prefix || 'คุณ';
 
     if (selectedCustomerId && !isNewCustomer) {
       const found = customers.find(c => c.id === selectedCustomerId);
@@ -232,7 +318,7 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
         customerObj = {
           id: `cust-${Date.now()}`,
           citizenId,
-          prefix,
+          prefix: finalPrefix,
           firstName,
           lastName,
           phone,
@@ -245,7 +331,7 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
       customerObj = {
         id: `cust-${Date.now()}`,
         citizenId,
-        prefix,
+        prefix: finalPrefix,
         firstName,
         lastName,
         phone,
@@ -264,8 +350,8 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
       storage,
       gpu,
       screenSize,
-      batteryStatus,
-      cosmeticGrade,
+      batteryStatus: batteryStatus as BatteryCondition,
+      cosmeticGrade: cosmeticGrade as CosmeticGrade,
       hasCharger,
       hasBox,
       hasBag,
@@ -295,6 +381,7 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
     };
 
     onSave(newBuyIn, newCustToSave);
+    resetBuyInForm();
     onClose();
   };
 
@@ -323,7 +410,8 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
             </div>
           </div>
           <button
-            onClick={onClose}
+            type="button"
+            onClick={handleClose}
             className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -379,7 +467,7 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
         </div>
 
         {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-3 sm:p-5 text-slate-800 text-xs">
+        <form ref={formRef} autoComplete="off" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-3 sm:p-5 text-slate-800 text-xs">
           {formError && (
             <div className="mb-3 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -488,6 +576,7 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
                     onChange={(e) => setPrefix(e.target.value)}
                     className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
                   >
+                    <option value="">-- เลือกคำนำหน้า --</option>
                     <option value="นาย">นาย</option>
                     <option value="นาง">นาง</option>
                     <option value="นางสาว">นางสาว</option>
@@ -569,11 +658,22 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
           {/* TAB 2: LAPTOP SPECS & HARDWARE CHECK */}
           {activeTab === 'specs' && (
             <div className="space-y-4">
-              {/* Brand Pills */}
+              {/* Brand Select & Quick Pills */}
               <div>
                 <label className="block text-slate-700 font-bold mb-1.5">
                   ยี่ห้อโน็ตบุ้ค (Brand) <span className="text-rose-500">*</span>
                 </label>
+                <select
+                  value={brand}
+                  onChange={(e) => setBrand(e.target.value)}
+                  className="w-full mb-2 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                  required
+                >
+                  <option value="">-- เลือกยี่ห้อ --</option>
+                  {COMMON_BRANDS.map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
                 <div className="flex flex-wrap gap-1.5">
                   {COMMON_BRANDS.map(b => (
                     <button
@@ -759,9 +859,11 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
                     </label>
                     <select
                       value={batteryStatus}
-                      onChange={(e) => setBatteryStatus(e.target.value as BatteryCondition)}
+                      onChange={(e) => setBatteryStatus(e.target.value as BatteryCondition | '')}
                       className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs text-slate-900 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      required
                     >
+                      <option value="">-- เลือกสถานะแบตเตอรี่ --</option>
                       <option value="good">เก็บไฟดีมาก (&gt; 2 ชม.)</option>
                       <option value="fair">เก็บไฟพอใช้ (1 - 2 ชม.)</option>
                       <option value="poor">แบตเสื่อม (&lt; 30 นาที)</option>
@@ -1071,7 +1173,7 @@ export const BuyInLaptopModal: React.FC<BuyInLaptopModalProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="px-3.5 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-xs font-semibold cursor-pointer"
                   >
                     ยกเลิก

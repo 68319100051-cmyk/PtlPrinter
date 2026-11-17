@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { X, Check, ShieldCheck, AlertCircle } from 'lucide-react';
-import { PawnContract, ContractAmendmentLog } from '../types/pawn';
+import React, { useState, useMemo } from 'react';
+import { X, Check, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { PawnContract, ContractAmendmentLog, FlaggedSerial, SerialCheckMatch } from '../types/pawn';
+import { SecondhandBuyIn } from '../types/buyIn';
 import { formatCurrency } from '../utils/thaiFormat';
+import { checkSerial, collectSerials } from '../utils/serialCheck';
 
 interface EditContractModalProps {
   isOpen: boolean;
@@ -10,6 +12,10 @@ interface EditContractModalProps {
   authorizerName: string;
   auditReason: string;
   onSave: (updatedContract: PawnContract) => void;
+  existingContracts?: PawnContract[];
+  archivedContracts?: PawnContract[];
+  secondhandBuyIns?: SecondhandBuyIn[];
+  flaggedSerials?: FlaggedSerial[];
 }
 
 export const EditContractModal: React.FC<EditContractModalProps> = ({
@@ -19,12 +25,37 @@ export const EditContractModal: React.FC<EditContractModalProps> = ({
   authorizerName,
   auditReason,
   onSave,
+  existingContracts = [],
+  archivedContracts = [],
+  secondhandBuyIns = [],
+  flaggedSerials = [],
 }) => {
   const [loanAmount, setLoanAmount] = useState<number>(contract.loanAmount);
   const [monthlyInterestRate, setMonthlyInterestRate] = useState<number>(contract.monthlyInterestRate);
   const [storageLocation, setStorageLocation] = useState<string>(contract.storageLocation || '');
   const [note, setNote] = useState<string>(contract.note || '');
   const [itemName, setItemName] = useState<string>(contract.item.name);
+
+  const serialMatches = useMemo<SerialCheckMatch[]>(() => {
+    const serials = collectSerials(contract.item);
+    if (serials.length === 0) return [];
+    const results: SerialCheckMatch[] = [];
+    for (const s of serials) {
+      results.push(
+        ...checkSerial(s, {
+          contracts: existingContracts,
+          archivedContracts,
+          secondhandBuyIns,
+          flagged: flaggedSerials,
+          excludeContractId: contract.id,
+          customerId: contract.customerId,
+          customerCitizenId: contract.customerSnapshot?.citizenId,
+          isImei: contract.item.category === 'phone',
+        })
+      );
+    }
+    return results;
+  }, [contract, existingContracts, archivedContracts, secondhandBuyIns, flaggedSerials]);
 
   if (!isOpen) return null;
 
@@ -51,6 +82,20 @@ export const EditContractModal: React.FC<EditContractModalProps> = ({
         ...contract.item,
         name: itemName.trim(),
       },
+      ...(collectSerials(contract.item).length > 0
+        ? {
+            serialCheck: {
+              checkedAt: new Date().toISOString(),
+              results: serialMatches,
+              ...(contract.serialCheck?.overriddenBy
+                ? {
+                    overriddenBy: contract.serialCheck.overriddenBy,
+                    overrideReason: contract.serialCheck.overrideReason,
+                  }
+                : {}),
+            },
+          }
+        : {}),
       amendmentLogs: [...contract.amendmentLogs, newLog],
     };
 
@@ -85,6 +130,22 @@ export const EditContractModal: React.FC<EditContractModalProps> = ({
             <div>ผู้อนุมัติการแก้ไข: <strong>{authorizerName}</strong></div>
             <div>เหตุผลที่ระบุ: <em>"{auditReason}"</em></div>
           </div>
+
+          {serialMatches.length > 0 && (
+            <div className="p-2.5 rounded-xl border border-amber-400 bg-amber-50 text-amber-900 space-y-1 text-[11px]">
+              <div className="font-bold flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>ผลตรวจเลขเครื่องซ้ำกับรายการอื่นในระบบ</span>
+              </div>
+              <ul className="pl-5 list-disc space-y-0.5">
+                {serialMatches.map((m, idx) => (
+                  <li key={`${m.refId}-${idx}`}>
+                    <strong>{m.label}:</strong> {m.detail}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div>
             <label className="block text-slate-700 font-medium mb-1">ชื่อรายการทรัพย์สิน</label>

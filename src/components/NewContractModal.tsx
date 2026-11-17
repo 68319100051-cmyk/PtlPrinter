@@ -4,6 +4,9 @@ import {
   Check,
   Search,
   AlertCircle,
+  AlertTriangle,
+  Info,
+  ShieldAlert,
   Laptop,
   Monitor,
   Printer,
@@ -14,12 +17,15 @@ import {
 } from 'lucide-react';
 import {
   Customer,
+  FlaggedSerial,
   PawnContract,
   PawnItem,
   ItemCategory,
+  SerialCheckMatch,
   ShopSettings,
   UserAccount
 } from '../types/pawn';
+import { SecondhandBuyIn } from '../types/buyIn';
 import {
   formatThaiDate,
   calculateTieredInterestRate,
@@ -30,6 +36,7 @@ import {
   formatPhone
 } from '../utils/thaiFormat';
 import { generateNextContractNumber } from '../utils/storage';
+import { checkSerial } from '../utils/serialCheck';
 
 interface NewContractModalProps {
   isOpen: boolean;
@@ -37,6 +44,9 @@ interface NewContractModalProps {
   onSave: (contract: PawnContract, newCustomer?: Customer) => void;
   customers: Customer[];
   existingContracts: PawnContract[];
+  archivedContracts?: PawnContract[];
+  secondhandBuyIns?: SecondhandBuyIn[];
+  flaggedSerials?: FlaggedSerial[];
   settings: ShopSettings;
   currentUser: UserAccount;
   initialCustomer?: Customer | null;
@@ -53,6 +63,9 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
   onSave,
   customers,
   existingContracts,
+  archivedContracts = [],
+  secondhandBuyIns = [],
+  flaggedSerials = [],
   settings,
   currentUser,
   initialCustomer,
@@ -145,6 +158,34 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
   // Field-level validation errors
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
+  // Serial / IMEI duplicate & flagged check state
+  const serialDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [serialMatches, setSerialMatches] = useState<SerialCheckMatch[]>([]);
+  const [warnAcknowledged, setWarnAcknowledged] = useState<boolean>(false);
+  const [showOverridePanel, setShowOverridePanel] = useState<boolean>(false);
+  const [overrideApproved, setOverrideApproved] = useState<boolean>(false);
+  const [overrideReason, setOverrideReason] = useState<string>('');
+
+  const clearSerialCheckState = useCallback(() => {
+    if (serialDebounceRef.current) {
+      clearTimeout(serialDebounceRef.current);
+      serialDebounceRef.current = null;
+    }
+    setSerialMatches([]);
+    setWarnAcknowledged(false);
+    setShowOverridePanel(false);
+    setOverrideApproved(false);
+    setOverrideReason('');
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (serialDebounceRef.current) {
+        clearTimeout(serialDebounceRef.current);
+      }
+    };
+  }, []);
+
   /**
    * ฟังก์ชันรีเซ็ตฟอร์มกลางสำหรับส่วนสินค้าไอทีทุกหมวดหมู่ (5 แท็บ)
    * ป้องกันค่าเดิมค้างข้ามแท็บหรือข้ามสัญญาอย่างเด็ดขาด
@@ -206,9 +247,10 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
     setGtSerial('');
     setGtSpecs('');
 
-    // Clear item-related validation errors
+    // Clear item-related validation errors & serial alerts
     setFieldErrors({});
-  }, []);
+    clearSerialCheckState();
+  }, [clearSerialCheckState]);
 
   /**
    * ฟังก์ชันรีเซ็ตฟอร์มสัญญาใหม่ทั้งหน้าต่าง (ลูกค้า + สินค้า + การเงิน)
@@ -268,6 +310,84 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
     resetItemForm();
     setCategory(cat);
   };
+
+  // Run serial/IMEI verification immediately
+  const runSerialCheckNow = useCallback(
+    (rawSerial: string, isImei = false): SerialCheckMatch[] => {
+      if (serialDebounceRef.current) {
+        clearTimeout(serialDebounceRef.current);
+        serialDebounceRef.current = null;
+      }
+      if (!rawSerial.trim()) {
+        setSerialMatches([]);
+        return [];
+      }
+      const matches = checkSerial(rawSerial, {
+        contracts: existingContracts,
+        archivedContracts,
+        secondhandBuyIns,
+        flagged: flaggedSerials,
+        customerId: customerMode === 'search' ? selectedCustomer?.id : undefined,
+        customerCitizenId:
+          customerMode === 'search'
+            ? selectedCustomer?.citizenId
+            : newCustCitizenId.replace(/\D/g, ''),
+        isImei,
+      });
+      setSerialMatches(matches);
+      return matches;
+    },
+    [
+      existingContracts,
+      archivedContracts,
+      secondhandBuyIns,
+      flaggedSerials,
+      customerMode,
+      selectedCustomer,
+      newCustCitizenId,
+    ]
+  );
+
+  // Debounced serial check (400ms) on input change
+  const handleSerialInputChange = (
+    val: string,
+    setter: React.Dispatch<React.SetStateAction<string>>,
+    errorKey: string,
+    isImei = false
+  ) => {
+    setter(val);
+    clearError(errorKey);
+    // Reset prior acknowledgments/overrides when serial value changes
+    setWarnAcknowledged(false);
+    setShowOverridePanel(false);
+    setOverrideApproved(false);
+    setOverrideReason('');
+
+    if (serialDebounceRef.current) {
+      clearTimeout(serialDebounceRef.current);
+      serialDebounceRef.current = null;
+    }
+
+    if (!val.trim()) {
+      setSerialMatches([]);
+      return;
+    }
+
+    serialDebounceRef.current = setTimeout(() => {
+      runSerialCheckNow(val, isImei);
+    }, 400);
+  };
+
+  const canOverrideBlock = currentUser.role === 'admin' || currentUser.role === 'manager';
+  const hasSerialBlock = serialMatches.some((m) => m.level === 'block');
+  const hasSerialWarn = serialMatches.some((m) => m.level === 'warn');
+  const isBlockOverridden =
+    hasSerialBlock &&
+    canOverrideBlock &&
+    overrideApproved &&
+    overrideReason.trim().length >= 10;
+  const isSaveLockedBySerial =
+    (hasSerialBlock && !isBlockOverridden) || (hasSerialWarn && !warnAcknowledged);
 
   // Date & Duration helpers
   const parsedMonths = durationMonths === '' ? 0 : Math.max(0, parseInt(durationMonths, 10) || 0);
@@ -434,6 +554,61 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
       return;
     }
 
+    // Re-run serial/IMEI verification before saving to ensure up-to-date enforcement
+    const serialFieldValue =
+      category === 'notebook'
+        ? nbSerial
+        : category === 'printer'
+        ? prSerial
+        : category === 'phone'
+        ? phoneImei
+        : category === 'gadget_it'
+        ? gtSerial
+        : '';
+
+    const finalSerialMatches = serialFieldValue.trim()
+      ? runSerialCheckNow(serialFieldValue, category === 'phone')
+      : [];
+
+    const finalHasBlock = finalSerialMatches.some((m) => m.level === 'block');
+    const finalHasWarn = finalSerialMatches.some((m) => m.level === 'warn');
+    const finalOverridden =
+      finalHasBlock &&
+      canOverrideBlock &&
+      overrideApproved &&
+      overrideReason.trim().length >= 10;
+
+    if (finalHasBlock && !finalOverridden) {
+      const serialErrorKey =
+        category === 'notebook'
+          ? 'nbSerial'
+          : category === 'printer'
+          ? 'prSerial'
+          : category === 'phone'
+          ? 'phoneImei'
+          : 'gtSerial';
+      setFieldErrors({
+        [serialErrorKey]:
+          'พบเลขเครื่องต้องห้าม/ซ้ำในระบบ ต้องให้ผู้จัดการหรือเจ้าของร้านอนุมัติข้ามคำเตือนก่อนบันทึก',
+      });
+      return;
+    }
+
+    if (finalHasWarn && !warnAcknowledged) {
+      const serialErrorKey =
+        category === 'notebook'
+          ? 'nbSerial'
+          : category === 'printer'
+          ? 'prSerial'
+          : category === 'phone'
+          ? 'phoneImei'
+          : 'gtSerial';
+      setFieldErrors({
+        [serialErrorKey]: 'กรุณาติ๊กยืนยัน "ได้ตรวจสอบแล้ว" ใต้ช่องหมายเลขเครื่องก่อนบันทึก',
+      });
+      return;
+    }
+
     let targetCustomer: Customer;
     let newlyCreatedCustomer: Customer | undefined;
 
@@ -548,6 +723,20 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
       interestPayments: [],
       amendmentLogs: [],
       note: note.trim(),
+      ...(serialFieldValue.trim()
+        ? {
+            serialCheck: {
+              checkedAt: new Date().toISOString(),
+              results: finalSerialMatches,
+              ...(finalOverridden
+                ? {
+                    overriddenBy: currentUser.name,
+                    overrideReason: overrideReason.trim(),
+                  }
+                : {}),
+            },
+          }
+        : {}),
       createdAt: new Date().toISOString(),
       createdBy: currentUser.name,
     };
@@ -558,6 +747,157 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
   };
 
   if (!isOpen) return null;
+
+  const renderSerialCheckAlerts = () => {
+    if (serialMatches.length === 0) return null;
+
+    const blockMatches = serialMatches.filter((m) => m.level === 'block');
+    const warnMatches = serialMatches.filter((m) => m.level === 'warn');
+    const infoMatches = serialMatches.filter((m) => m.level === 'info');
+
+    return (
+      <div className="mt-1.5 space-y-1.5">
+        {blockMatches.length > 0 && (
+          <div className="p-2.5 rounded-lg border-2 border-rose-500 bg-rose-50 text-rose-900 space-y-2 text-[11px]">
+            <div className="flex items-start gap-1.5 font-bold text-rose-800">
+              <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+              <span>พบปัญหาต้องระงับการรับฝาก (BLOCK)</span>
+            </div>
+            <ul className="space-y-1 pl-5 list-disc">
+              {blockMatches.map((m, idx) => (
+                <li key={`${m.refId}-${idx}`}>
+                  <div className="font-bold">{m.label}</div>
+                  <div className="text-[10px] text-rose-700">{m.detail}</div>
+                </li>
+              ))}
+            </ul>
+
+            {canOverrideBlock ? (
+              <div className="pt-1.5 border-t border-rose-200 space-y-1.5">
+                {!showOverridePanel && !overrideApproved && (
+                  <button
+                    type="button"
+                    onClick={() => setShowOverridePanel(true)}
+                    className="px-2.5 py-1 bg-rose-700 hover:bg-rose-800 text-white font-bold rounded-md text-[10.5px] cursor-pointer"
+                  >
+                    อนุมัติข้ามคำเตือน ({currentUser.role === 'admin' ? 'เจ้าของร้าน' : 'ผู้จัดการ'})
+                  </button>
+                )}
+
+                {(showOverridePanel || overrideApproved) && (
+                  <div className="space-y-1.5 bg-white/90 p-2 rounded border border-rose-300">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-bold text-rose-900">
+                        ระบุเหตุผลการอนุมัติข้ามคำเตือน (อย่างน้อย 10 ตัวอักษร):
+                      </span>
+                      <span
+                        className={`font-mono font-bold ${
+                          overrideReason.trim().length >= 10 ? 'text-emerald-700' : 'text-rose-600'
+                        }`}
+                      >
+                        {overrideReason.trim().length}/10
+                      </span>
+                    </div>
+                    <textarea
+                      rows={2}
+                      value={overrideReason}
+                      onChange={(e) => {
+                        setOverrideReason(e.target.value);
+                        if (e.target.value.trim().length < 10) {
+                          setOverrideApproved(false);
+                        }
+                      }}
+                      placeholder="เช่น ตรวจสอบหลักฐานแล้วเป็นเครื่องคนละรุ่นหรือลูกค้าแจ้งปิดสัญญาเก่าเรียบร้อย..."
+                      className="w-full px-2 py-1 text-[11px] bg-white border border-rose-300 rounded text-slate-900 resize-none"
+                    />
+                    <div className="flex items-center justify-between gap-2">
+                      {!overrideApproved ? (
+                        <button
+                          type="button"
+                          disabled={overrideReason.trim().length < 10}
+                          onClick={() => setOverrideApproved(true)}
+                          className={`px-2.5 py-1 rounded text-[10.5px] font-bold transition-colors ${
+                            overrideReason.trim().length >= 10
+                              ? 'bg-rose-700 hover:bg-rose-800 text-white cursor-pointer'
+                              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          }`}
+                        >
+                          ยืนยันอนุมัติข้ามคำเตือน
+                        </button>
+                      ) : (
+                        <span className="text-[10.5px] font-bold text-emerald-700 flex items-center gap-1">
+                          <Check className="w-3.5 h-3.5" />
+                          อนุมัติข้ามคำเตือนแล้ว โดย {currentUser.name}
+                        </span>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowOverridePanel(false);
+                          setOverrideApproved(false);
+                          setOverrideReason('');
+                        }}
+                        className="text-[10px] text-slate-500 hover:text-slate-800 underline cursor-pointer"
+                      >
+                        ยกเลิกการอนุมัติ
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="pt-1 border-t border-rose-200 text-[10.5px] font-semibold text-rose-800">
+                ไม่สามารถบันทึกได้: สิทธิ์พนักงานทั่วไป ({currentUser.role}) ไม่สามารถข้ามคำเตือนระดับ Block กรุณาให้ผู้จัดการหรือเจ้าของร้านตรวจสอบและอนุมัติ
+              </div>
+            )}
+          </div>
+        )}
+
+        {warnMatches.length > 0 && (
+          <div className="p-2.5 rounded-lg border-2 border-amber-400 bg-amber-50 text-amber-900 space-y-1.5 text-[11px]">
+            <div className="flex items-start gap-1.5 font-bold text-amber-900">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <span>คำเตือนการตรวจสอบเลขเครื่อง (WARN)</span>
+            </div>
+            <ul className="space-y-1 pl-5 list-disc">
+              {warnMatches.map((m, idx) => (
+                <li key={`${m.refId}-${idx}`}>
+                  <div className="font-bold">{m.label}</div>
+                  <div className="text-[10px] text-amber-800">{m.detail}</div>
+                </li>
+              ))}
+            </ul>
+            <label className="flex items-center gap-1.5 pt-1 border-t border-amber-200 cursor-pointer font-bold text-amber-950">
+              <input
+                type="checkbox"
+                checked={warnAcknowledged}
+                onChange={(e) => setWarnAcknowledged(e.target.checked)}
+                className="rounded text-amber-600 focus:ring-amber-500"
+              />
+              <span>ได้ตรวจสอบแล้ว (ยืนยันความถูกต้องเพื่อบันทึกสัญญา)</span>
+            </label>
+          </div>
+        )}
+
+        {infoMatches.length > 0 && (
+          <div className="p-2 rounded-lg border border-sky-400 bg-sky-50 text-sky-900 space-y-1 text-[11px]">
+            <div className="flex items-start gap-1.5 font-bold text-sky-800">
+              <Info className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
+              <span>ข้อมูลอ้างอิง (INFO)</span>
+            </div>
+            <ul className="space-y-0.5 pl-5 list-disc">
+              {infoMatches.map((m, idx) => (
+                <li key={`${m.refId}-${idx}`}>
+                  <span className="font-semibold">{m.label}: </span>
+                  <span className="text-[10px] text-sky-800">{m.detail}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const previewContractNumber = generateNextContractNumber(existingContracts);
 
@@ -977,10 +1317,8 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
                       name="nb-serial-no-autofill"
                       autoComplete="off"
                       value={nbSerial}
-                      onChange={(e) => {
-                        setNbSerial(e.target.value);
-                        clearError('nbSerial');
-                      }}
+                      onChange={(e) => handleSerialInputChange(e.target.value, setNbSerial, 'nbSerial', false)}
+                      onBlur={(e) => runSerialCheckNow(e.target.value, false)}
                       placeholder="กรอกหมายเลข S/N"
                       className={`w-full font-mono uppercase font-bold bg-white border rounded-lg px-2.5 py-1.5 text-xs text-amber-950 ${
                         fieldErrors.nbSerial ? 'border-rose-500 ring-1 ring-rose-500' : 'border-amber-300'
@@ -990,6 +1328,7 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
                     {fieldErrors.nbSerial && (
                       <p className="text-[10px] text-rose-600 mt-0.5 font-medium">{fieldErrors.nbSerial}</p>
                     )}
+                    {category === 'notebook' && renderSerialCheckAlerts()}
                   </div>
                   <div data-has-error={Boolean(fieldErrors.nbRam)}>
                     <label className="block text-slate-700 font-semibold mb-1">หน่วยความจำ (RAM) *</label>
@@ -1310,10 +1649,8 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
                       name="pr-serial-no-autofill"
                       autoComplete="off"
                       value={prSerial}
-                      onChange={(e) => {
-                        setPrSerial(e.target.value);
-                        clearError('prSerial');
-                      }}
+                      onChange={(e) => handleSerialInputChange(e.target.value, setPrSerial, 'prSerial', false)}
+                      onBlur={(e) => runSerialCheckNow(e.target.value, false)}
                       placeholder="กรอกหมายเลข S/N"
                       className={`w-full font-mono uppercase font-bold bg-white border rounded-lg px-2.5 py-1.5 text-xs text-emerald-950 ${
                         fieldErrors.prSerial ? 'border-rose-500 ring-1 ring-rose-500' : 'border-emerald-300'
@@ -1323,6 +1660,7 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
                     {fieldErrors.prSerial && (
                       <p className="text-[10px] text-rose-600 mt-0.5 font-medium">{fieldErrors.prSerial}</p>
                     )}
+                    {category === 'printer' && renderSerialCheckAlerts()}
                   </div>
                   <div>
                     <label className="block text-slate-700 font-semibold mb-1">ระบบน้ำหมึก (Ink System)</label>
@@ -1462,10 +1800,8 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
                     autoComplete="off"
                     maxLength={20}
                     value={phoneImei}
-                    onChange={(e) => {
-                      setPhoneImei(e.target.value);
-                      clearError('phoneImei');
-                    }}
+                    onChange={(e) => handleSerialInputChange(e.target.value, setPhoneImei, 'phoneImei', true)}
+                    onBlur={(e) => runSerialCheckNow(e.target.value, true)}
                     placeholder="กรอก IMEI หรือ S/N"
                     className={`w-full bg-white border rounded-lg px-2.5 py-1.5 text-xs font-mono ${
                       fieldErrors.phoneImei ? 'border-rose-500 ring-1 ring-rose-500' : 'border-blue-300'
@@ -1475,6 +1811,7 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
                   {fieldErrors.phoneImei && (
                     <p className="text-[10px] text-rose-600 mt-0.5 font-medium">{fieldErrors.phoneImei}</p>
                   )}
+                  {category === 'phone' && renderSerialCheckAlerts()}
                 </div>
                 <div>
                   <label className="block text-slate-700 font-semibold mb-1">สถานะ iCloud / บัญชี</label>
@@ -1583,10 +1920,8 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
                     name="gt-serial-no-autofill"
                     autoComplete="off"
                     value={gtSerial}
-                    onChange={(e) => {
-                      setGtSerial(e.target.value);
-                      clearError('gtSerial');
-                    }}
+                    onChange={(e) => handleSerialInputChange(e.target.value, setGtSerial, 'gtSerial', false)}
+                    onBlur={(e) => runSerialCheckNow(e.target.value, false)}
                     placeholder="กรอกหมายเลข S/N"
                     className={`w-full font-mono uppercase font-bold bg-white border rounded-lg px-2.5 py-1.5 text-xs ${
                       fieldErrors.gtSerial ? 'border-rose-500 ring-1 ring-rose-500' : 'border-purple-300'
@@ -1596,6 +1931,7 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
                   {fieldErrors.gtSerial && (
                     <p className="text-[10px] text-rose-600 mt-0.5 font-medium">{fieldErrors.gtSerial}</p>
                   )}
+                  {category === 'gadget_it' && renderSerialCheckAlerts()}
                 </div>
                 <div className="sm:col-span-2 lg:col-span-4">
                   <label className="block text-slate-700 font-semibold mb-1">สรุปรายละเอียดสเปก</label>
@@ -1923,10 +2259,21 @@ export const NewContractModal: React.FC<NewContractModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-transform active:scale-95 cursor-pointer"
+              disabled={isSaveLockedBySerial}
+              className={`px-5 py-2 font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm transition-transform ${
+                isSaveLockedBySerial
+                  ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                  : 'bg-amber-400 hover:bg-amber-300 text-slate-950 active:scale-95 cursor-pointer'
+              }`}
             >
               <Check className="w-4 h-4 stroke-[2.5]" />
-              <span>บันทึกเปิดสัญญาขายฝากไอที</span>
+              <span>
+                {hasSerialBlock && !isBlockOverridden
+                  ? 'ถูกล็อก: พบเลขเครื่องติด Block'
+                  : hasSerialWarn && !warnAcknowledged
+                  ? 'กรุณาติ๊ก "ได้ตรวจสอบแล้ว" ก่อนบันทึก'
+                  : 'บันทึกเปิดสัญญาขายฝากไอที'}
+              </span>
             </button>
           </div>
         </form>

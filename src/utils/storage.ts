@@ -11,6 +11,17 @@ const STORAGE_KEYS = {
   SECONDHAND: 'anchan_secondhand_buyin_v1',
 };
 
+/**
+ * ปิดการโหลดข้อมูลตัวอย่าง (seed data) อัตโนมัติในโหมด production
+ * เพื่อไม่ให้ข้อมูลตัวอย่าง (เช่น Asus ROG Strix G16) ปะปนเข้าสู่ฐานข้อมูลจริงของร้าน
+ */
+export const ENABLE_SAMPLE_DATA_SEED: boolean =
+  typeof import.meta !== 'undefined' &&
+  import.meta.env &&
+  import.meta.env.PROD
+    ? import.meta.env.VITE_ENABLE_SAMPLE_SEED === 'true'
+    : true;
+
 export const DEFAULT_USERS: UserAccount[] = [
   { id: 'u-1', name: 'คุณชัยกร (เจ้าของร้าน / ผู้ดูแลระบบ)', role: 'admin', pin: '1234' },
   { id: 'u-2', name: 'ช่างเอก (หัวหน้าช่างคอมพิวเตอร์ / ผู้จัดการ)', role: 'manager', pin: '8888' },
@@ -384,13 +395,14 @@ export function getContracts(): PawnContract[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CONTRACTS);
     if (!raw) {
+      if (!ENABLE_SAMPLE_DATA_SEED) return [];
       saveContracts(INITIAL_CONTRACTS);
       return INITIAL_CONTRACTS;
     }
     return JSON.parse(raw);
   } catch (err) {
     console.error('Error reading contracts from storage', err);
-    return INITIAL_CONTRACTS;
+    return ENABLE_SAMPLE_DATA_SEED ? INITIAL_CONTRACTS : [];
   }
 }
 
@@ -415,12 +427,13 @@ export function getCustomers(): Customer[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.CUSTOMERS);
     if (!raw) {
+      if (!ENABLE_SAMPLE_DATA_SEED) return [];
       saveCustomers(INITIAL_CUSTOMERS);
       return INITIAL_CUSTOMERS;
     }
     return JSON.parse(raw);
   } catch {
-    return INITIAL_CUSTOMERS;
+    return ENABLE_SAMPLE_DATA_SEED ? INITIAL_CUSTOMERS : [];
   }
 }
 
@@ -725,13 +738,14 @@ export function getSecondhandBuyIns(): SecondhandBuyIn[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.SECONDHAND);
     if (!raw) {
+      if (!ENABLE_SAMPLE_DATA_SEED) return [];
       saveSecondhandBuyIns(INITIAL_SECONDHAND_BUYINS);
       return INITIAL_SECONDHAND_BUYINS;
     }
     return JSON.parse(raw);
   } catch (err) {
     console.error('Error reading secondhand items from storage', err);
-    return INITIAL_SECONDHAND_BUYINS;
+    return ENABLE_SAMPLE_DATA_SEED ? INITIAL_SECONDHAND_BUYINS : [];
   }
 }
 

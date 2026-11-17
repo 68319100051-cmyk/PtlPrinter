@@ -592,6 +592,8 @@ export default function App() {
         onSave={handleSaveNewContract}
         customers={customers}
         existingContracts={contracts}
+        archivedContracts={archivedContracts}
+        secondhandBuyIns={secondhandBuyIns}
         settings={settings}
         currentUser={currentUser}
         initialCustomer={preselectedCustomer}
@@ -704,6 +706,9 @@ export default function App() {
           authorizerName={editSession.authorizerName}
           auditReason={editSession.auditReason}
           onSave={handleSaveEditedContract}
+          existingContracts={contracts}
+          archivedContracts={archivedContracts}
+          secondhandBuyIns={secondhandBuyIns}
         />
       )}
 
