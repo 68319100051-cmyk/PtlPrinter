@@ -24,25 +24,66 @@
   -ms-overflow-style: none !important;
 }
 
-@media print {
-  @page {
-    size: A5 portrait;
-    margin: 8mm;
-  }
+/* A5 Print Page Container & Layout (Screen Preview + Print) */
+.print-page {
+  box-sizing: border-box;
+  width: 148mm;
+  height: 210mm;
+  padding: 6mm 6mm 6mm 6mm; /* บน ขวา ล่าง ซ้าย = 6 มม. เท่ากันทุกด้าน */
+  display: flex;
+  flex-direction: column;   /* ดันส่วนลายเซ็นลงล่างสุด */
+  overflow: hidden;
+  background-color: #ffffff;
+  color: #000000;
+  page-break-after: always;
+  break-after: page;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
 
+.print-page:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+.print-content {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.signature-block {
+  margin-top: auto; /* ดันลงติดขอบล่าง (ห่าง 6 มม.) */
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 3mm;
+  padding-top: 4mm;
+  border-top: 1px solid #000000;
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+@page {
+  size: A5 portrait;      /* 148mm x 210mm */
+  margin: 0;              /* ควบคุมขอบ 6mm ผ่าน .print-page container เอง */
+}
+
+@media print {
   html, body {
-    background: white !important;
-    color: #000 !important;
+    width: 148mm !important;
+    height: 210mm !important;
     margin: 0 !important;
     padding: 0 !important;
-    width: 100% !important;
-    height: auto !important;
+    background: #ffffff !important;
+    color: #000000 !important;
     overflow: visible !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  .no-print {
+  /* ซ่อนส่วน UI ทั้งหมดที่ไม่ใช่เอกสาร (header, แท็บเลือกรูปแบบ, ปุ่มสั่งพิมพ์, ปุ่มปิด) */
+  .no-print, header, nav, .tabs, button {
     display: none !important;
   }
 
@@ -50,32 +91,41 @@
     display: block !important;
   }
 
-  .a5-portrait-sheet {
-    width: 100% !important;
-    max-width: 100% !important;
+  .print-page {
+    width: 148mm !important;
+    height: 209.5mm !important;
+    max-width: 148mm !important;
+    max-height: 209.5mm !important;
     box-sizing: border-box !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 6mm 6mm 6mm 6mm !important;
     box-shadow: none !important;
     border: none !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+    page-break-after: always !important;
+    break-after: page !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    overflow: visible !important;
   }
 
-  /* Ink-saver print mode for A5 ticket: clear heavy dark backgrounds and colored fills */
-  .a5-portrait-sheet,
-  .a5-portrait-sheet *:not(img):not(svg) {
+  .print-page:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  /* Crisp ink-friendly print styling while preserving images & QR codes */
+  .print-page,
+  .print-page *:not(img):not(svg) {
     background-color: transparent !important;
     background-image: none !important;
     color: #000000 !important;
     box-shadow: none !important;
     text-shadow: none !important;
-    border-color: #000000 !important;
   }
 
-  img {
-    background: transparent !important;
+  .print-page img {
+    background: #ffffff !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { X, Printer, FileText, Receipt, Scroll, CheckCircle2 } from 'lucide-react';
 import { PawnContract, ShopSettings, InterestPayment } from '../types/pawn';
 import {
@@ -22,6 +22,144 @@ interface PrintTicketModalProps {
   activeReceipt?: InterestPayment;
 }
 
+/**
+ * Automatically shrinks content proportionally ONLY when its natural height
+ * exceeds the available space above .signature-block inside a 148mm x 210mm A5 page.
+ */
+const AutoFitPrintContent: React.FC<{
+  children: React.ReactNode;
+  depKey: string;
+}> = ({ children, depKey }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState<number>(1);
+
+  const recalculateScale = useCallback(() => {
+    const container = containerRef.current;
+    const inner = innerRef.current;
+    if (!container || !inner) return;
+
+    // Measure at natural 100% width so scale never oscillates
+    const prevTransform = inner.style.transform;
+    const prevOrigin = inner.style.transformOrigin;
+    const prevWidth = inner.style.width;
+    inner.style.transform = '';
+    inner.style.transformOrigin = '';
+    inner.style.width = '';
+
+    const availableHeight = container.clientHeight;
+    const naturalHeight = inner.scrollHeight;
+
+    inner.style.transform = prevTransform;
+    inner.style.transformOrigin = prevOrigin;
+    inner.style.width = prevWidth;
+
+    if (availableHeight > 0 && naturalHeight > availableHeight) {
+      const nextScale = Math.max(0.62, Math.floor(((availableHeight - 2) / naturalHeight) * 1000) / 1000);
+      setScale(nextScale);
+    } else {
+      setScale(1);
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    recalculateScale();
+  }, [depKey, recalculateScale]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+      recalculateScale();
+    });
+    observer.observe(container);
+
+    const handleBeforePrint = () => {
+      recalculateScale();
+    };
+    window.addEventListener('beforeprint', handleBeforePrint);
+
+    if (typeof document !== 'undefined' && document.fonts?.ready) {
+      document.fonts.ready.then(() => {
+        recalculateScale();
+      });
+    }
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('beforeprint', handleBeforePrint);
+    };
+  }, [recalculateScale]);
+
+  return (
+    <div ref={containerRef} className="print-content overflow-hidden">
+      <div
+        ref={innerRef}
+        style={
+          scale < 1
+            ? {
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
+                width: `${100 / scale}%`,
+              }
+            : undefined
+        }
+      >
+        {children}
+      </div>
+    </div>
+  );
+};
+
+interface A5SignatureBlockProps {
+  leftName: string;
+  leftRole: string;
+  rightName: string;
+  rightRole: string;
+  qrImageUrl: string;
+}
+
+const A5SignatureBlock: React.FC<A5SignatureBlockProps> = ({
+  leftName,
+  leftRole,
+  rightName,
+  rightRole,
+  qrImageUrl,
+}) => (
+  <div className="signature-block text-[9.5px] text-black">
+    <div className="flex-1 min-w-0 text-center">
+      <div className="h-[14mm] border-b border-dotted border-black mx-2" />
+      <div className="mt-1 font-semibold text-black break-words leading-snug">
+        ({leftName})
+      </div>
+      <div className="text-[8.5px] text-black leading-snug">{leftRole}</div>
+    </div>
+
+    <div className="w-[14mm] h-[14mm] border border-dashed border-black rounded flex flex-col items-center justify-center text-[8px] text-black shrink-0 leading-tight">
+      <span>ประทับตรา</span>
+      <span>ร้าน</span>
+    </div>
+
+    <div className="flex-1 min-w-0 text-center">
+      <div className="h-[14mm] border-b border-dotted border-black mx-2" />
+      <div className="mt-1 font-semibold text-black break-words leading-snug">
+        ({rightName})
+      </div>
+      <div className="text-[8.5px] text-black leading-snug">{rightRole}</div>
+    </div>
+
+    <div className="flex flex-col items-center shrink-0">
+      <img
+        src={qrImageUrl}
+        alt="QR ตรวจสอบสัญญา"
+        className="w-[13.5mm] h-[13.5mm] border border-black rounded p-[1px] bg-white object-contain"
+      />
+      <span className="text-[7.5px] text-black mt-0.5 font-mono leading-none">สแกนตรวจสอบ</span>
+    </div>
+  </div>
+);
+
 export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
   isOpen,
   onClose,
@@ -30,16 +168,21 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
   defaultMode = 'a5_ticket',
   activeReceipt,
 }) => {
-  // Map incoming mode to supported A5 and standard formats
-  const initialFormat: PrintFormat = (() => {
-    if (defaultMode === 'slip') return 'slip';
-    if (defaultMode === 'full_contract') return 'full_contract';
-    if (defaultMode === 'interest_receipt' || defaultMode === 'a5_interest_receipt') return 'a5_interest_receipt';
-    if (defaultMode === 'redeem_receipt' || defaultMode === 'a5_redeem_receipt') return 'a5_redeem_receipt';
+  const resolveFormat = useCallback((mode: PrintTicketModalProps['defaultMode']): PrintFormat => {
+    if (mode === 'slip') return 'slip';
+    if (mode === 'full_contract') return 'full_contract';
+    if (mode === 'interest_receipt' || mode === 'a5_interest_receipt') return 'a5_interest_receipt';
+    if (mode === 'redeem_receipt' || mode === 'a5_redeem_receipt') return 'a5_redeem_receipt';
     return 'a5_ticket';
-  })();
+  }, []);
 
-  const [format, setFormat] = useState<PrintFormat>(initialFormat);
+  const [format, setFormat] = useState<PrintFormat>(() => resolveFormat(defaultMode));
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormat(resolveFormat(defaultMode));
+    }
+  }, [isOpen, defaultMode, resolveFormat]);
 
   if (!isOpen) return null;
 
@@ -60,66 +203,182 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
   const qrVerificationUrl = `${currentOrigin}/?c=${encodeURIComponent(contract.contractNumber)}`;
   const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(qrVerificationUrl)}`;
 
+  const customerFullName = `${contract.customerSnapshot.prefix || ''}${contract.customerSnapshot.firstName} ${contract.customerSnapshot.lastName}`.trim();
+  const staffOrManagerName = contract.createdBy || settings.ownerName || 'ผู้รับซื้อฝาก';
+  const latestInterestReceipt = activeReceipt || contract.interestPayments[contract.interestPayments.length - 1];
+
+  const categoryLabel =
+    contract.item.category === 'notebook'
+      ? 'โน็ตบุ้ค'
+      : contract.item.category === 'printer'
+      ? 'เครื่องพิมพ์'
+      : contract.item.category === 'computer'
+      ? 'คอมพิวเตอร์พีซี'
+      : contract.item.category === 'phone'
+      ? 'สมาร์ตโฟน/แท็บเล็ต'
+      : 'อุปกรณ์ไอที';
+
+  const termsLines = (settings.termsAndConditions || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const renderAssetSpecsBlock = () => (
+    <>
+      {contract.item.notebook && (
+        <div className="grid grid-cols-2 gap-1 bg-white p-1.5 rounded border border-black text-[9.5px] mt-1 font-mono text-black leading-snug">
+          <div className="break-words"><strong>S/N:</strong> {contract.item.notebook.serialNumber}</div>
+          <div className="break-words"><strong>CPU:</strong> {contract.item.notebook.processor}</div>
+          <div className="break-words"><strong>RAM:</strong> {contract.item.notebook.ramGb}GB / <strong>Storage:</strong> {contract.item.notebook.storage}</div>
+          <div className="break-words"><strong>อุปกรณ์:</strong> {contract.item.notebook.hasCharger ? 'สายชาร์จแท้' : 'ไม่มีชาร์จ'}{contract.item.notebook.hasBag ? ', กระเป๋า' : ''}</div>
+        </div>
+      )}
+
+      {contract.item.printer && (
+        <div className="grid grid-cols-2 gap-1 bg-white p-1.5 rounded border border-black text-[9.5px] mt-1 text-black leading-snug">
+          <div className="break-words"><strong>S/N:</strong> <span className="font-mono">{contract.item.printer.serialNumber}</span></div>
+          <div className="break-words"><strong>ยี่ห้อ/รุ่น:</strong> {contract.item.printer.brand} {contract.item.printer.model}</div>
+          <div className="break-words"><strong>ระบบหมึก:</strong> {contract.item.printer.inkSystem === 'genuine_tank' ? 'แท็งก์แท้ศูนย์' : 'ตลับหมึก'}</div>
+          <div className="break-words"><strong>สภาพหัวพิมพ์:</strong> {contract.item.printer.headCondition === 'normal' ? 'สมบูรณ์ 100%' : 'มีเส้น/ต้องล้าง'}</div>
+        </div>
+      )}
+
+      {contract.item.computer && (
+        <div className="grid grid-cols-2 gap-1 bg-white p-1.5 rounded border border-black text-[9.5px] mt-1 text-black leading-snug">
+          <div className="break-words"><strong>เคส/แบรนด์:</strong> {contract.item.computer.brandOrCustom}</div>
+          <div className="break-words"><strong>ซีพียู/แรม:</strong> {contract.item.computer.processor} (RAM {contract.item.computer.ramGb}GB)</div>
+          <div className="break-words"><strong>การ์ดจอ:</strong> {contract.item.computer.gpu || '-'}</div>
+          <div className="break-words"><strong>ความจุ:</strong> {contract.item.computer.storage}</div>
+        </div>
+      )}
+
+      {contract.item.phone && (
+        <div className="grid grid-cols-2 gap-1 bg-white p-1.5 rounded border border-black text-[9.5px] mt-1 font-mono text-black leading-snug">
+          <div className="break-words"><strong>IMEI / S/N:</strong> {contract.item.phone.imei}</div>
+          <div className="break-words"><strong>ความจุ:</strong> {contract.item.phone.storageGb} · <strong>iCloud:</strong> {contract.item.phone.icloudStatus === 'unlocked' ? 'ปลดล็อคแล้ว' : 'ติดรหัส'}</div>
+        </div>
+      )}
+
+      {contract.item.itGadget && (
+        <div className="grid grid-cols-2 gap-1 bg-white p-1.5 rounded border border-black text-[9.5px] mt-1 text-black leading-snug">
+          <div className="break-words"><strong>ยี่ห้อ/รุ่น:</strong> {contract.item.itGadget.brand} {contract.item.itGadget.model}</div>
+          <div className="break-words"><strong>S/N:</strong> <span className="font-mono">{contract.item.itGadget.serialNumber || '-'}</span></div>
+          <div className="col-span-2 break-words"><strong>รายละเอียด:</strong> {contract.item.itGadget.specsSummary}</div>
+        </div>
+      )}
+    </>
+  );
+
+  const renderShopHeader = (badgeTitle: string, rightTopLabel: string, rightTopValue: string, rightSubLabel: string, rightSubValue: string) => (
+    <div className="border-b border-black pb-2 mb-2">
+      <div className="flex justify-between items-start gap-2.5">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <img
+            src={effectiveLogo}
+            alt="Logo"
+            onError={(e) => {
+              if (e.currentTarget.src !== window.location.origin + '/shop_logo.jpg') {
+                e.currentTarget.src = '/shop_logo.jpg';
+              }
+            }}
+            className="w-11 h-11 rounded object-contain bg-white p-0.5 border border-black shrink-0"
+          />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-[13.5px] font-bold tracking-tight text-black break-words leading-snug">
+              {settings.shopName || 'พัทลุงปริ้นเตอร์ คอมพิวเตอร์'}
+            </h1>
+            <p className="text-[9.5px] text-black font-medium leading-snug">
+              {settings.branchName} · โทร. {settings.phone}
+            </p>
+            <p className="text-[9px] text-black leading-snug break-words">
+              {settings.address}
+            </p>
+            <p className="text-[9px] text-black leading-snug">
+              Line: {settings.lineId} · Facebook: {settings.facebook || 'พัทลุงปริ้นเตอร์'}
+            </p>
+          </div>
+        </div>
+
+        <div className="text-right shrink-0 flex flex-col items-end">
+          <span className="inline-block border border-black bg-white text-black font-bold px-2 py-0.5 rounded text-[9.5px] tracking-wide mb-1 whitespace-nowrap">
+            {badgeTitle}
+          </span>
+          <div className="text-[10.5px] text-black leading-snug">
+            <span className="font-normal">{rightTopLabel}: </span>
+            <strong className="font-mono font-bold text-[12px] text-black">{rightTopValue}</strong>
+          </div>
+          <div className="text-[9.5px] text-black mt-0.5 leading-snug">
+            <span>{rightSubLabel}: </span>
+            <strong>{rightSubValue}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-0 sm:p-4 overflow-y-auto print:p-0 print:bg-white [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-0 sm:p-4 overflow-y-auto print:static print:block print:inset-auto print:w-[148mm] print:h-auto print:p-0 print:m-0 print:bg-white print:overflow-visible [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
     >
-      <div className="w-full h-full sm:h-auto sm:max-h-[96vh] max-w-4xl bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-slate-200 overflow-hidden flex flex-col my-auto print:m-0 print:p-0 print:border-none print:shadow-none print:max-h-none print:h-auto print:overflow-visible">
+      <div className="w-full h-full sm:h-auto sm:max-h-[96vh] max-w-4xl bg-white rounded-none sm:rounded-2xl shadow-2xl border-0 sm:border border-slate-200 overflow-hidden flex flex-col my-auto print:static print:block print:w-[148mm] print:max-w-none print:h-auto print:max-h-none print:m-0 print:p-0 print:border-none print:shadow-none print:rounded-none print:overflow-visible">
         
-        {/* Dynamic print page styling depending on active format */}
+        {/* Unified A5 Portrait Print Stylesheet */}
         <style dangerouslySetInnerHTML={{
           __html: `
+            @page {
+              size: A5 portrait;
+              margin: 0;
+            }
             @media print {
-              @page {
-                size: ${format === 'full_contract' ? 'A4 portrait' : format === 'slip' ? '80mm auto' : 'A5 portrait'};
-                margin: ${format === 'full_contract' ? '8mm 10mm' : format === 'slip' ? '2mm 3mm' : '8mm'};
-              }
               html, body {
-                background: white !important;
-                color: #000 !important;
+                width: 148mm !important;
+                height: 210mm !important;
                 margin: 0 !important;
                 padding: 0 !important;
-                width: 100% !important;
+                background: #ffffff !important;
+                color: #000000 !important;
                 overflow: visible !important;
                 -webkit-print-color-adjust: exact !important;
                 print-color-adjust: exact !important;
               }
-              .no-print {
+              .no-print, header, nav, .tabs, button {
                 display: none !important;
               }
-              ::-webkit-scrollbar {
-                display: none !important;
-              }
-              * {
-                scrollbar-width: none !important;
-                -ms-overflow-style: none !important;
-              }
-              .a5-portrait-sheet {
-                width: 100% !important;
-                max-width: 100% !important;
+              .print-page {
                 box-sizing: border-box !important;
+                width: 148mm !important;
+                height: 209.5mm !important;
+                max-width: 148mm !important;
+                max-height: 209.5mm !important;
+                padding: 6mm 6mm 6mm 6mm !important;
                 margin: 0 !important;
-                padding: 0 !important;
+                display: flex !important;
+                flex-direction: column !important;
+                overflow: hidden !important;
                 border: none !important;
+                border-radius: 0 !important;
                 box-shadow: none !important;
+                page-break-after: always !important;
+                break-after: page !important;
                 page-break-inside: avoid !important;
                 break-inside: avoid !important;
-                overflow: visible !important;
               }
-              /* Ink-saver: clear heavy dark fills and background shadows */
-              .a5-portrait-sheet,
-              .a5-portrait-sheet *:not(img):not(svg) {
-                background-color: transparent !important;
-                background-image: none !important;
-                color: #000000 !important;
-                box-shadow: none !important;
-                text-shadow: none !important;
+              .print-page:last-child {
+                page-break-after: auto !important;
+                break-after: auto !important;
               }
-              .a5-portrait-sheet img {
-                background: transparent !important;
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
+              .print-content {
+                flex: 1 1 auto !important;
+                min-height: 0 !important;
+              }
+              .signature-block {
+                margin-top: auto !important;
+                flex: 0 0 auto !important;
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: flex-end !important;
+                padding-top: 4mm !important;
               }
             }
           `
@@ -132,7 +391,7 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
               <Printer className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-base">ศูนย์พิมพ์เอกสาร ตั๋วสัญญา & ใบเสร็จรับเงิน</h3>
+              <h3 className="font-bold text-slate-900 text-base">ศูนย์พิมพ์เอกสาร ตั๋วสัญญา & ใบเสร็จรับเงิน (A5)</h3>
               <p className="text-xs text-slate-500">
                 สัญญาเลขที่: <span className="font-mono font-bold text-slate-800">{contract.contractNumber}</span> · ผู้ขายฝาก: {contract.customerSnapshot.firstName} {contract.customerSnapshot.lastName}
               </p>
@@ -141,13 +400,15 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
 
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handlePrint}
               className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-amber-400 text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-2 cursor-pointer"
             >
               <Printer className="w-4 h-4 text-amber-400" />
-              <span>สั่งพิมพ์ (Print A5/A4/Slip)</span>
+              <span>สั่งพิมพ์ (A5)</span>
             </button>
             <button
+              type="button"
               onClick={onClose}
               className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
             >
@@ -157,10 +418,11 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
         </div>
 
         {/* Format Selector Bar (Hidden during print) */}
-        <div className="no-print flex items-center gap-1.5 px-3 sm:px-6 py-2.5 bg-slate-100 border-b border-slate-200 overflow-x-auto text-xs shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="no-print tabs flex items-center gap-1.5 px-3 sm:px-6 py-2.5 bg-slate-100 border-b border-slate-200 overflow-x-auto text-xs shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <span className="text-slate-500 font-medium whitespace-nowrap mr-2">รูปแบบเอกสาร:</span>
           
           <button
+            type="button"
             onClick={() => setFormat('a5_ticket')}
             className={`px-3 py-1.5 rounded-lg font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
               format === 'a5_ticket'
@@ -169,11 +431,12 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
-            ตั๋วสัญญาขายฝากไอที (ขนาด A5 แนวตั้ง) ⭐
+            ตั๋วสัญญาขายฝากไอที (A5) ⭐
           </button>
 
           {contract.interestPayments.length > 0 && (
             <button
+              type="button"
               onClick={() => setFormat('a5_interest_receipt')}
               className={`px-3 py-1.5 rounded-lg font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                 format === 'a5_interest_receipt'
@@ -182,12 +445,13 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              ใบเสร็จต่อดอกเบี้ย (ขนาด A5 แนวตั้ง)
+              ใบเสร็จต่อดอกเบี้ย (A5)
             </button>
           )}
 
           {contract.redemption && (
             <button
+              type="button"
               onClick={() => setFormat('a5_redeem_receipt')}
               className={`px-3 py-1.5 rounded-lg font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                 format === 'a5_redeem_receipt'
@@ -196,11 +460,12 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
               }`}
             >
               <CheckCircle2 className="w-3.5 h-3.5" />
-              ใบเสร็จไถ่ถอน (ขนาด A5 แนวตั้ง)
+              ใบเสร็จไถ่ถอน (A5)
             </button>
           )}
 
           <button
+            type="button"
             onClick={() => setFormat('slip')}
             className={`px-3 py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
               format === 'slip'
@@ -209,10 +474,11 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
             }`}
           >
             <Receipt className="w-3.5 h-3.5" />
-            ตั๋วสลิปความร้อน (80mm)
+            ตั๋วสลิปย่อ (A5)
           </button>
 
           <button
+            type="button"
             onClick={() => setFormat('full_contract')}
             className={`px-3 py-1.5 rounded-lg font-medium transition-colors whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
               format === 'full_contract'
@@ -221,244 +487,144 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
             }`}
           >
             <Scroll className="w-3.5 h-3.5" />
-            สัญญาขายฝากเต็มฉบับ (A4 แนวตั้ง)
+            สัญญาขายฝากเต็มฉบับ (A5)
           </button>
         </div>
 
         {/* Printable Viewport */}
         <div
-          className="flex-1 p-2 sm:p-5 overflow-y-auto bg-slate-200 flex justify-center items-start print:p-0 print:m-0 print:bg-white print:overflow-visible [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          className="flex-1 p-2 sm:p-5 overflow-auto bg-slate-200 flex justify-center items-start print:block print:p-0 print:m-0 print:bg-white print:overflow-visible [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
           
           {/* ========================================================================= */}
           {/* FORMAT 1: A5 PORTRAIT TICKET (ตั๋วสัญญาขายฝากไอที ขนาด A5 แนวตั้ง 148 x 210mm) */}
-          {/* Ink-saver design, 100% width, no overflow, full visible right-side texts    */}
           {/* ========================================================================= */}
           {format === 'a5_ticket' && (
-            <div className="a5-portrait-sheet w-full max-w-2xl bg-white p-4 sm:p-5 rounded-lg shadow-md border border-slate-300 font-contract text-black box-border print:shadow-none print:border-none print:p-0 print:m-0 print:w-full print:max-w-full leading-tight text-[10.5px] [page-break-inside:avoid] [break-inside:avoid]">
-              
-              {/* Header with Logo & Shop Info */}
-              <div className="border-b border-black pb-2 mb-2">
-                <div className="flex flex-col sm:flex-row justify-between items-start gap-2.5">
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                    <img
-                      src={effectiveLogo}
-                      alt="Logo"
-                      onError={(e) => {
-                        if (e.currentTarget.src !== window.location.origin + '/shop_logo.jpg') {
-                          e.currentTarget.src = '/shop_logo.jpg';
-                        }
-                      }}
-                      className="w-12 h-12 rounded object-contain bg-white p-0.5 border border-slate-300 shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <h1 className="text-sm sm:text-base font-bold tracking-tight text-black break-words leading-tight">
-                        {settings.shopName || 'พัทลุงปริ้นเตอร์ คอมพิวเตอร์'}
-                      </h1>
-                      <p className="text-[10px] text-black font-medium leading-tight">
-                        {settings.branchName} · โทร. {settings.phone}
-                      </p>
-                      <p className="text-[9.5px] text-black leading-tight break-words">
-                        {settings.address}
-                      </p>
-                      <p className="text-[9.5px] text-black leading-tight">
-                        Line: {settings.lineId} · Facebook: {settings.facebook || 'พัทลุงปริ้นเตอร์'}
-                      </p>
+            <div className="print-page shadow-md border border-slate-300 font-contract leading-snug text-[10px] shrink-0">
+              <AutoFitPrintContent depKey={`ticket-${contract.id}-${contract.createdAt}-${contract.amendmentLogs.length}`}>
+                {renderShopHeader(
+                  'ตั๋วสัญญาขายฝาก / จำนำไอที (A5)',
+                  'เลขที่สัญญา',
+                  contract.contractNumber,
+                  'วันที่ทำรายการ',
+                  formatThaiDate(contract.startDate)
+                )}
+
+                {/* Customer & Pledged Terms Summary */}
+                <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div className="bg-white p-2 rounded border border-black text-black">
+                    <div className="font-bold text-black border-b border-black pb-0.5 mb-1 text-[10px] flex justify-between items-center">
+                      <span>ข้อมูลผู้ขายฝาก / จำนำ</span>
+                      <span className="text-[9px] text-black font-mono">ID: {contract.customerId}</span>
+                    </div>
+                    <div className="space-y-0.5 text-[9.5px] leading-snug">
+                      <div className="break-words">
+                        <span>ชื่อ-สกุล: </span>
+                        <strong className="text-black font-bold">{customerFullName}</strong>
+                      </div>
+                      <div>
+                        <span>เลขบัตรประชาชน: </span>
+                        <strong className="font-mono text-black">{formatCitizenId(contract.customerSnapshot.citizenId)}</strong>
+                      </div>
+                      <div>
+                        <span>เบอร์โทรศัพท์: </span>
+                        <strong className="font-mono text-black">{formatPhone(contract.customerSnapshot.phone)}</strong>
+                      </div>
+                      <div className="text-[9px] text-black break-words leading-snug">
+                        <span>ที่อยู่: </span>{contract.customerSnapshot.address}
+                      </div>
                     </div>
                   </div>
 
-                  {/* Right Header: Full width on mobile/flex, clear non-clipped contract info */}
-                  <div className="text-left sm:text-right shrink-0 min-w-0 max-w-full flex flex-col items-start sm:items-end self-stretch sm:self-auto pt-1 sm:pt-0 border-t sm:border-t-0 border-slate-200">
-                    <span className="inline-block border border-black bg-white text-black font-bold px-2 py-0.5 rounded text-[10px] tracking-wide mb-1 whitespace-nowrap">
-                      ตั๋วสัญญาขายฝาก / จำนำไอที (A5)
+                  <div className="bg-white p-2 rounded border border-black text-black">
+                    <div className="font-bold text-black border-b border-black pb-0.5 mb-1 text-[10px] flex justify-between items-center">
+                      <span>เงื่อนไขระยะเวลา & ครบกำหนด</span>
+                      <span className="font-mono text-black font-bold">{formatDurationText(contract.durationMonths, contract.durationDays)}</span>
+                    </div>
+                    <div className="space-y-0.5 text-[9.5px] leading-snug">
+                      <div>
+                        <span>ระยะเวลาสัญญา: </span>
+                        <strong className="text-black">{formatDurationText(contract.durationMonths, contract.durationDays)}</strong>
+                      </div>
+                      <div>
+                        <span>วันครบกำหนดไถ่ถอน: </span>
+                        <strong className="text-black font-bold underline">{formatThaiDate(contract.dueDate, true)}</strong>
+                      </div>
+                      <div>
+                        <span>อัตราดอกเบี้ย: </span>
+                        <strong className="text-black">{contract.monthlyInterestRate}% ต่อเดือน</strong>
+                      </div>
+                      <div className="text-[9px] text-black break-words leading-snug">
+                        <span>ที่เก็บรักษา: </span>
+                        <span className="text-black">{contract.storageLocation || 'ตู้นิรภัยไอที ร้านพัทลุงปริ้นเตอร์'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Item Details Box */}
+                <div className="border border-black rounded p-2 mb-2 bg-white text-black">
+                  <div className="font-bold text-black border-b border-black pb-0.5 mb-1 flex justify-between items-center text-[10px]">
+                    <span>รายการทรัพย์สินไอทีที่นำมาฝาก / จำนำ</span>
+                    <span className="text-[9px] px-1.5 py-0.5 border border-black rounded text-black font-medium">
+                      หมวด: {categoryLabel}
                     </span>
-                    <div className="flex flex-wrap items-baseline justify-start sm:justify-end gap-1 text-[11px] text-black">
-                      <span className="text-slate-600 font-normal">เลขที่สัญญา:</span>
-                      <strong className="font-mono font-bold text-sm text-black break-all">{contract.contractNumber}</strong>
-                    </div>
-                    <div className="text-[10px] text-black mt-0.5 break-words">
-                      <span className="text-slate-600">วันที่ทำรายการ: </span>
-                      <strong>{formatThaiDate(contract.startDate)}</strong>
-                    </div>
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="text-[10.5px] font-bold text-black break-words leading-snug">{contract.item.name}</div>
+                    <div className="text-[9.5px] text-black leading-snug break-words">{contract.item.description}</div>
+                    {renderAssetSpecsBlock()}
                   </div>
                 </div>
-              </div>
 
-              {/* Customer & Pledged Terms Summary */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-2">
-                <div className="bg-white p-2 rounded border border-black text-black">
-                  <div className="font-bold text-black border-b border-black pb-0.5 mb-1 text-[10.5px] flex justify-between items-center">
-                    <span>ข้อมูลผู้ขายฝาก / จำนำ</span>
-                    <span className="text-[9.5px] text-black font-mono">ID: {contract.customerId}</span>
+                {/* Financial Box */}
+                <div className="bg-white border border-black text-black p-2 rounded mb-2 flex justify-between items-center gap-2 text-[10px]">
+                  <div className="min-w-0">
+                    <div className="text-black text-[9px]">จำนวนเงินต้นรับจำนำ / ขายฝาก:</div>
+                    <div className="text-base font-bold font-mono tracking-tight text-black leading-snug">
+                      {formatCurrency(contract.loanAmount)}
+                    </div>
+                    <div className="text-[9px] text-black font-medium break-words">({bahtToText(contract.loanAmount)})</div>
                   </div>
-                  <div className="space-y-0.5 text-[10px]">
-                    <div className="break-words">
-                      <span className="text-slate-600">ชื่อ-สกุล: </span>
-                      <strong className="text-black font-bold whitespace-normal">{contract.customerSnapshot.prefix}{contract.customerSnapshot.firstName} {contract.customerSnapshot.lastName}</strong>
+                  <div className="text-right shrink-0">
+                    <div className="text-black text-[9px]">ดอกเบี้ยต่องวด ({formatDurationText(contract.durationMonths, contract.durationDays)}):</div>
+                    <div className="text-sm font-bold font-mono text-black leading-snug">
+                      ฿{periodInterest.toLocaleString()} บาท
                     </div>
-                    <div>
-                      <span className="text-slate-600">เลขบัตรประชาชน: </span>
-                      <strong className="font-mono text-black">{formatCitizenId(contract.customerSnapshot.citizenId)}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-600">เบอร์โทรศัพท์: </span>
-                      <strong className="font-mono text-black">{formatPhone(contract.customerSnapshot.phone)}</strong>
-                    </div>
-                    <div className="text-[9.5px] text-black break-words whitespace-normal leading-tight">
-                      <span className="text-slate-600">ที่อยู่: </span>{contract.customerSnapshot.address}
+                    <div className="text-[9px] text-black font-normal">
+                      (เฉลี่ยเดือนละ {formatCurrency(monthlyInterest)})
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white p-2 rounded border border-black text-black">
-                  <div className="font-bold text-black border-b border-black pb-0.5 mb-1 text-[10.5px] flex justify-between items-center">
-                    <span>เงื่อนไขระยะเวลา & วันครบกำหนด</span>
-                    <span className="font-mono text-black font-bold">{formatDurationText(contract.durationMonths, contract.durationDays)}</span>
+                {/* Shop Payment Transfer Info */}
+                <div className="bg-white border border-black rounded p-1.5 mb-1.5 text-[9px] text-black leading-snug">
+                  <div className="font-bold text-black mb-0.5">
+                    ช่องทางชำระดอกเบี้ย / โอนเงินต่อสัญญา:
                   </div>
-                  <div className="space-y-0.5 text-[10px]">
-                    <div>
-                      <span className="text-slate-600">ระยะเวลาสัญญา: </span>
-                      <strong className="text-black">{formatDurationText(contract.durationMonths, contract.durationDays)}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-600">วันครบกำหนดไถ่ถอน: </span>
-                      <strong className="text-black font-bold underline">{formatThaiDate(contract.dueDate, true)}</strong>
-                    </div>
-                    <div>
-                      <span className="text-slate-600">อัตราดอกเบี้ย: </span>
-                      <strong className="text-black">{contract.monthlyInterestRate}% ต่อเดือน</strong>
-                    </div>
-                    <div className="text-[9.5px] text-black break-words leading-tight">
-                      <span className="text-slate-600">ที่เก็บรักษา: </span>
-                      <span className="text-black">{contract.storageLocation || 'ตู้นิรภัยไอที ร้านพัทลุงปริ้นเตอร์'}</span>
-                    </div>
+                  <div className="break-words">
+                    {settings.bankName || 'ธนาคารกสิกรไทย'} เลขที่ <strong className="font-mono text-black">{settings.bankAccountNumber || '083-4-26805-8'}</strong> ({settings.bankAccountName || 'พัทลุงปริ้นเตอร์ คอมพิวเตอร์'}) · พร้อมเพย์: <strong className="font-mono text-black">{settings.promptPayId || '0834268058'}</strong>
+                  </div>
+                  <div className="text-[8.5px] text-black mt-0.5">
+                    * เมื่อโอนชำระเงินแล้วกรุณาส่งสลิปทาง Line: <strong>{settings.lineId || 'poi1800'}</strong> พร้อมแจ้งสัญญา <strong>{contract.contractNumber}</strong>
                   </div>
                 </div>
-              </div>
 
-              {/* Item Details Box */}
-              <div className="border border-black rounded p-2 mb-2 bg-white text-black">
-                <div className="font-bold text-black border-b border-black pb-0.5 mb-1 flex justify-between items-center text-[10.5px]">
-                  <span>รายการทรัพย์สินไอทีที่นำมาฝาก / จำนำ</span>
-                  <span className="text-[9.5px] px-1 py-0.2 border border-black rounded text-black font-medium">
-                    หมวด: {contract.item.category === 'notebook' ? 'โน็ตบุ้ค' : contract.item.category === 'printer' ? 'เครื่องพิมพ์' : contract.item.category === 'computer' ? 'คอมพิวเตอร์พีซี' : 'อุปกรณ์ไอที'}
-                  </span>
+                {/* Terms Warning */}
+                <div className="text-[8.5px] text-black bg-white p-1.5 rounded border border-black space-y-0.5 leading-snug">
+                  <div>1. โปรดนำตั๋วสัญญาฉบับนี้พร้อมบัตรประชาชนมาแสดงทุกครั้งที่ติดต่อชำระดอกเบี้ยหรือไถ่ถอนทรัพย์สิน</div>
+                  <div>2. หากครบกำหนดสัญญาและพ้นระยะเวลาผ่อนผัน <strong>{settings.gracePeriodDays || 15} วัน</strong> ทรัพย์สินจะตกเป็นกรรมสิทธิ์ของผู้รับซื้อฝากโดยเด็ดขาดตามกฎหมาย</div>
                 </div>
-                <div className="space-y-0.5">
-                  <div className="text-[11px] font-bold text-black break-words">{contract.item.name}</div>
-                  <div className="text-[10px] text-black leading-snug break-words">{contract.item.description}</div>
-                  
-                  {/* Detailed Specs chip rows */}
-                  {contract.item.notebook && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 bg-white p-1 rounded border border-slate-400 text-[10px] mt-1 font-mono text-black">
-                      <div><strong>S/N:</strong> {contract.item.notebook.serialNumber}</div>
-                      <div><strong>CPU:</strong> {contract.item.notebook.processor}</div>
-                      <div><strong>RAM:</strong> {contract.item.notebook.ramGb}GB / <strong>Storage:</strong> {contract.item.notebook.storage}</div>
-                      <div><strong>อุปกรณ์:</strong> {contract.item.notebook.hasCharger ? 'สายชาร์จแท้' : 'ไม่มีชาร์จ'}{contract.item.notebook.hasBag ? ', กระเป๋า' : ''}</div>
-                    </div>
-                  )}
+              </AutoFitPrintContent>
 
-                  {contract.item.printer && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 bg-white p-1 rounded border border-slate-400 text-[10px] mt-1 text-black">
-                      <div><strong>S/N:</strong> <span className="font-mono">{contract.item.printer.serialNumber}</span></div>
-                      <div><strong>ยี่ห้อ/รุ่น:</strong> {contract.item.printer.brand} {contract.item.printer.model}</div>
-                      <div><strong>ระบบหมึก:</strong> {contract.item.printer.inkSystem === 'genuine_tank' ? 'แท็งก์แท้ศูนย์' : 'ตลับหมึก'}</div>
-                      <div><strong>สภาพหัวพิมพ์:</strong> {contract.item.printer.headCondition === 'normal' ? 'สมบูรณ์ 100%' : 'มีเส้น/ต้องล้าง'}</div>
-                    </div>
-                  )}
-
-                  {contract.item.computer && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 bg-white p-1 rounded border border-slate-400 text-[10px] mt-1 text-black">
-                      <div><strong>เคส/แบรนด์:</strong> {contract.item.computer.brandOrCustom}</div>
-                      <div><strong>ซีพียู/แรม:</strong> {contract.item.computer.processor} (RAM {contract.item.computer.ramGb}GB)</div>
-                      <div><strong>การ์ดจอ:</strong> {contract.item.computer.gpu || '-'}</div>
-                      <div><strong>ความจุ:</strong> {contract.item.computer.storage}</div>
-                    </div>
-                  )}
-
-                  {contract.item.phone && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 bg-white p-1 rounded border border-slate-400 text-[10px] mt-1 font-mono text-black">
-                      <div><strong>IMEI / S/N:</strong> {contract.item.phone.imei}</div>
-                      <div><strong>ความจุ:</strong> {contract.item.phone.storageGb} · <strong>iCloud:</strong> {contract.item.phone.icloudStatus === 'unlocked' ? 'ปลดล็อคแล้ว' : 'ติดรหัส'}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Financial Box - INK SAVER: White background, 1px black border, solid black text */}
-              <div className="bg-white border border-black text-black p-2 rounded mb-2 flex justify-between items-center text-[10.5px]">
-                <div>
-                  <div className="text-black text-[9.5px]">จำนวนเงินต้นรับจำนำ / ขายฝาก:</div>
-                  <div className="text-base font-bold font-mono tracking-tight text-black">
-                    {formatCurrency(contract.loanAmount)}
-                  </div>
-                  <div className="text-[9.5px] text-black font-medium">({bahtToText(contract.loanAmount)})</div>
-                </div>
-                <div className="text-right">
-                  <div className="text-black text-[9.5px]">ดอกเบี้ยต่องวด ({formatDurationText(contract.durationMonths, contract.durationDays)}):</div>
-                  <div className="text-sm font-bold font-mono text-black">
-                    ฿{periodInterest.toLocaleString()} บาท
-                  </div>
-                  <div className="text-[9.5px] text-black font-normal">
-                    (เฉลี่ยเดือนละ {formatCurrency(monthlyInterest)})
-                  </div>
-                </div>
-              </div>
-
-              {/* Shop Payment Transfer Info & Terms */}
-              <div className="bg-white border border-black rounded p-1.5 mb-1.5 text-[9.5px] text-black leading-snug">
-                <div className="font-bold text-black mb-0.5">
-                  🏦 ช่องทางชำระดอกเบี้ย / โอนเงินต่อสัญญา:
-                </div>
-                <div className="break-words">
-                  {settings.bankName || 'ธนาคารกสิกรไทย'} เลขที่ <strong className="font-mono text-black">{settings.bankAccountNumber || '083-4-26805-8'}</strong> ({settings.bankAccountName || 'พัทลุงปริ้นเตอร์ คอมพิวเตอร์'}) · พร้อมเพย์: <strong className="font-mono text-black">{settings.promptPayId || '0834268058'}</strong>
-                </div>
-                <div className="text-[9px] text-black mt-0.5">
-                  * เมื่อโอนชำระเงินแล้วกรุณาส่งสลิปทาง Line: <strong>{settings.lineId || 'poi1800'}</strong> พร้อมแจ้งสัญญา <strong>{contract.contractNumber}</strong>
-                </div>
-              </div>
-
-              {/* Terms Warning */}
-              <div className="text-[9px] text-black bg-white p-1.5 rounded border border-black mb-2 space-y-0.5 leading-tight">
-                <div>1. โปรดนำตั๋วสัญญาฉบับนี้พร้อมบัตรประชาชนมาแสดงทุกครั้งที่ติดต่อชำระดอกเบี้ยหรือไถ่ถอนทรัพย์สิน</div>
-                <div>2. หากครบกำหนดสัญญาและพ้นระยะเวลาผ่อนผัน <strong>{settings.gracePeriodDays || 15} วัน</strong> ทรัพย์สินจะตกเป็นกรรมสิทธิ์ของผู้รับซื้อฝากโดยเด็ดขาดตามกฎหมาย</div>
-              </div>
-
-              {/* Signatures & QR Code - Perfectly fitted on 1 page */}
-              <div className="pt-1.5 border-t border-black flex items-end justify-between gap-1 text-[10px] text-black [page-break-inside:avoid] [break-inside:avoid]">
-                <div className="text-center w-32 sm:w-36 shrink-0">
-                  <div className="h-9 border-b border-dotted border-black"></div>
-                  <div className="mt-1 font-semibold text-black break-words whitespace-normal leading-tight">
-                    ({contract.customerSnapshot.prefix}{contract.customerSnapshot.firstName} {contract.customerSnapshot.lastName})
-                  </div>
-                  <div className="text-[9px] text-black">ผู้ขายฝาก / จำนำ</div>
-                </div>
-
-                <div className="w-12 h-12 border border-dashed border-black rounded flex flex-col items-center justify-center text-[8.5px] text-black shrink-0">
-                  <span>ประทับตรา</span>
-                  <span>ร้าน</span>
-                </div>
-
-                <div className="text-center w-32 sm:w-36 shrink-0">
-                  <div className="h-9 border-b border-dotted border-black"></div>
-                  <div className="mt-1 font-semibold text-black break-words whitespace-normal leading-tight">
-                    ({contract.createdBy || settings.ownerName || 'ผู้รับซื้อฝาก'})
-                  </div>
-                  <div className="text-[9px] text-black">ผู้รับซื้อฝาก / จนท.</div>
-                </div>
-
-                {/* QR Code for quick mobile scanning */}
-                <div className="flex flex-col items-center shrink-0">
-                  <img
-                    src={qrImageUrl}
-                    alt="Scan QR"
-                    className="w-12 h-12 border border-black rounded p-0.5 bg-white"
-                  />
-                  <span className="text-[8px] text-black mt-0.5 font-mono">สแกนตรวจสอบ</span>
-                </div>
-              </div>
-
+              <A5SignatureBlock
+                leftName={customerFullName}
+                leftRole="ผู้ขายฝาก / จำนำ"
+                rightName={staffOrManagerName}
+                rightRole="ผู้รับซื้อฝาก / จนท."
+                qrImageUrl={qrImageUrl}
+              />
             </div>
           )}
 
@@ -466,108 +632,112 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
           {/* FORMAT 2: A5 PORTRAIT INTEREST RECEIPT (ใบเสร็จต่อดอกเบี้ย ขนาด A5 แนวตั้ง) */}
           {/* ========================================================================= */}
           {format === 'a5_interest_receipt' && (
-            <div className="a5-portrait-sheet w-full max-w-2xl bg-white p-4 sm:p-5 rounded-lg shadow-md border border-slate-300 font-contract text-black box-border print:shadow-none print:border-none print:p-0 print:m-0 print:w-full print:max-w-full leading-tight text-[10.5px] [page-break-inside:avoid] [break-inside:avoid]">
-              {(() => {
-                const receipt = activeReceipt || contract.interestPayments[contract.interestPayments.length - 1];
-                if (!receipt) return <div className="text-center py-8 text-black">ยังไม่มีประวัติการต่อดอกเบี้ยในสัญญานี้</div>;
-                return (
-                  <div>
-                    {/* Header with Logo */}
-                    <div className="border-b border-black pb-2 mb-2 flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                        <img
-                          src={effectiveLogo}
-                          alt="Logo"
-                          onError={(e) => {
-                            if (e.currentTarget.src !== window.location.origin + '/shop_logo.jpg') {
-                              e.currentTarget.src = '/shop_logo.jpg';
-                            }
-                          }}
-                          className="w-12 h-12 rounded object-contain bg-white p-0.5 border border-slate-300 shrink-0"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <h2 className="text-base font-bold text-black break-words leading-tight">{settings.shopName || 'พัทลุงปริ้นเตอร์ คอมพิวเตอร์'}</h2>
-                          <p className="text-[10px] text-black font-medium leading-tight">{settings.branchName} · โทร. {settings.phone}</p>
-                          <p className="text-[9.5px] text-black leading-tight break-words">{settings.address}</p>
-                        </div>
-                      </div>
-
-                      <div className="text-right shrink-0">
-                        <span className="inline-block border border-black bg-white text-black font-bold px-2 py-0.5 rounded text-[10px]">
-                          ใบเสร็จรับเงินชำระดอกเบี้ย (A5)
-                        </span>
-                        <div className="text-[10px] text-black mt-1">เลขที่ใบเสร็จ: <strong className="font-mono text-black">{receipt.receiptNumber}</strong></div>
-                        <div className="text-[9.5px] text-black">สัญญาอ้างอิง: <strong className="font-mono text-black">{contract.contractNumber}</strong></div>
-                      </div>
-                    </div>
+            <div className="print-page shadow-md border border-slate-300 font-contract leading-snug text-[10px] shrink-0">
+              {!latestInterestReceipt ? (
+                <div className="flex-1 flex items-center justify-center text-black text-xs">
+                  ยังไม่มีประวัติการต่อดอกเบี้ยในสัญญานี้
+                </div>
+              ) : (
+                <>
+                  <AutoFitPrintContent depKey={`interest-${contract.id}-${latestInterestReceipt.id}`}>
+                    {renderShopHeader(
+                      'ใบเสร็จรับเงินชำระดอกเบี้ย (A5)',
+                      'เลขที่ใบเสร็จ',
+                      latestInterestReceipt.receiptNumber,
+                      'สัญญาอ้างอิง',
+                      contract.contractNumber
+                    )}
 
                     {/* Customer & Payment Meta */}
-                    <div className="grid grid-cols-2 gap-2 text-[10px] mb-2 bg-white p-2 rounded border border-black text-black">
-                      <div>
-                        <div className="break-words"><span className="text-slate-600">ชื่อลูกค้า: </span><strong className="text-black">{contract.customerSnapshot.prefix}{contract.customerSnapshot.firstName} {contract.customerSnapshot.lastName}</strong></div>
-                        <div><span className="text-slate-600">เลขบัตร: </span><span className="font-mono text-black">{formatCitizenId(contract.customerSnapshot.citizenId)}</span></div>
-                        <div><span className="text-slate-600">เบอร์โทร: </span><span className="font-mono text-black">{formatPhone(contract.customerSnapshot.phone)}</span></div>
+                    <div className="grid grid-cols-2 gap-2 text-[9.5px] mb-2 bg-white p-2 rounded border border-black text-black leading-snug">
+                      <div className="space-y-0.5">
+                        <div className="break-words"><span>ชื่อลูกค้า: </span><strong className="text-black">{customerFullName}</strong></div>
+                        <div><span>เลขบัตร: </span><span className="font-mono text-black">{formatCitizenId(contract.customerSnapshot.citizenId)}</span></div>
+                        <div><span>เบอร์โทร: </span><span className="font-mono text-black">{formatPhone(contract.customerSnapshot.phone)}</span></div>
                       </div>
-                      <div className="text-right">
-                        <div><span className="text-slate-600">วันที่ชำระ: </span><strong className="text-black">{formatThaiDateTime(receipt.date)}</strong></div>
-                        <div><span className="text-slate-600">ผู้รับเงิน: </span><strong className="text-black">{receipt.recordedBy}</strong></div>
-                        <div><span className="text-slate-600">ช่องทาง: </span><span className="font-semibold text-black">{receipt.paymentMethod === 'cash' ? '💵 เงินสด' : '📱 โอนเงินเข้าบัญชี'}</span></div>
+                      <div className="text-right space-y-0.5">
+                        <div><span>วันที่ชำระ: </span><strong className="text-black">{formatThaiDateTime(latestInterestReceipt.date)}</strong></div>
+                        <div><span>ผู้รับเงิน: </span><strong className="text-black">{latestInterestReceipt.recordedBy}</strong></div>
+                        <div><span>ช่องทาง: </span><span className="font-semibold text-black">{latestInterestReceipt.paymentMethod === 'cash' ? 'เงินสด' : 'โอนเงินเข้าบัญชี'}</span></div>
                       </div>
                     </div>
 
                     {/* Interest & Extension Details */}
-                    <div className="border border-black rounded p-2 text-[10.5px] mb-2 space-y-1.5 bg-white text-black">
-                      <div className="font-bold text-black flex justify-between border-b border-black pb-1">
+                    <div className="border border-black rounded p-2 text-[10px] mb-2 space-y-1.5 bg-white text-black leading-snug">
+                      <div className="font-bold text-black flex justify-between items-start gap-2 border-b border-black pb-1">
                         <span className="break-words">ทรัพย์สินค้ำประกัน: {contract.item.name}</span>
-                        <span className="text-black font-mono text-[10.5px] shrink-0">เงินต้น: {formatCurrency(contract.loanAmount)}</span>
+                        <span className="text-black font-mono shrink-0">เงินต้น: {formatCurrency(contract.loanAmount)}</span>
                       </div>
                       
-                      <div className="flex justify-between text-black text-[10px]">
-                        <span>จำนวนระยะเวลาที่ต่อสัญญา:</span>
-                        <strong className="text-black">{receipt.monthsPaid} เดือน (อัตรา {receipt.ratePercent}% ต่อเดือน)</strong>
+                      <div className="flex justify-between text-black text-[9.5px]">
+                        <span>ระยะเวลาที่ต่อสัญญา:</span>
+                        <strong className="text-black">{latestInterestReceipt.monthsPaid} เดือน (อัตรา {latestInterestReceipt.ratePercent}% ต่อเดือน)</strong>
+                      </div>
+
+                      <div className="border-t border-slate-300 pt-1 space-y-0.5 text-[9.5px]">
+                        <div className="flex justify-between">
+                          <span>๑. ค่าดอกเบี้ยตามงวด:</span>
+                          <span className="font-mono font-semibold">{formatCurrency(latestInterestReceipt.interestAmount)}</span>
+                        </div>
+                        {latestInterestReceipt.discountAmount > 0 && (
+                          <div className="flex justify-between">
+                            <span>๒. ส่วนลดดอกเบี้ย:</span>
+                            <span className="font-mono font-semibold">-{formatCurrency(latestInterestReceipt.discountAmount)}</span>
+                          </div>
+                        )}
+                        {latestInterestReceipt.lateFee > 0 && (
+                          <div className="flex justify-between">
+                            <span>๓. ค่าปรับล่าช้า:</span>
+                            <span className="font-mono font-semibold">+{formatCurrency(latestInterestReceipt.lateFee)}</span>
+                          </div>
+                        )}
                       </div>
                       
-                      <div className="bg-white p-1.5 rounded border border-slate-300 flex items-center justify-between text-[10px] text-black">
+                      <div className="bg-white p-1.5 rounded border border-black flex items-center justify-between text-[9.5px] text-black">
                         <div>
-                          <div className="text-slate-600">วันครบกำหนดเดิม:</div>
-                          <strong className="text-black">{formatThaiDate(receipt.previousDueDate)}</strong>
+                          <div>วันครบกำหนดเดิม:</div>
+                          <strong className="text-black">{formatThaiDate(latestInterestReceipt.previousDueDate)}</strong>
                         </div>
                         <div className="text-black font-bold text-sm">➔</div>
                         <div className="text-right">
                           <div className="text-black font-bold">วันครบกำหนดใหม่:</div>
-                          <strong className="text-black font-bold text-xs underline">{formatThaiDate(receipt.newDueDate, true)}</strong>
+                          <strong className="text-black font-bold text-[11px] underline">{formatThaiDate(latestInterestReceipt.newDueDate, true)}</strong>
                         </div>
                       </div>
+
+                      {latestInterestReceipt.note && (
+                        <div className="text-[9px] text-black border-t border-slate-300 pt-1 break-words">
+                          <strong>หมายเหตุ:</strong> {latestInterestReceipt.note}
+                        </div>
+                      )}
                     </div>
 
-                    {/* Total Amount Banner - INK SAVER */}
-                    <div className="bg-white border border-black text-black p-2.5 rounded mb-3 flex justify-between items-center text-[10.5px]">
+                    {/* Total Amount Banner */}
+                    <div className="bg-white border border-black text-black p-2.5 rounded mb-2 flex justify-between items-center gap-2 text-[10px]">
                       <div>
-                        <div className="text-black text-[9.5px]">ยอดเงินดอกเบี้ยที่รับชำระสุทธิ:</div>
-                        <div className="text-base font-bold font-mono text-black">{formatCurrency(receipt.totalPaid)}</div>
+                        <div className="text-black text-[9px]">ยอดเงินดอกเบี้ยที่รับชำระสุทธิ:</div>
+                        <div className="text-base font-bold font-mono text-black leading-snug">{formatCurrency(latestInterestReceipt.totalPaid)}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-black text-[9.5px]">ตัวอักษร:</div>
-                        <div className="text-black font-medium">{bahtToText(receipt.totalPaid)}</div>
+                        <div className="text-black text-[9px]">ตัวอักษร:</div>
+                        <div className="text-black font-medium break-words">({bahtToText(latestInterestReceipt.totalPaid)})</div>
                       </div>
                     </div>
 
-                    {/* Signatures */}
-                    <div className="grid grid-cols-2 gap-8 text-center text-[10px] pt-3 border-t border-black text-black [page-break-inside:avoid] [break-inside:avoid]">
-                      <div>
-                        <div className="h-9 border-b border-dotted border-black mx-6"></div>
-                        <div className="mt-1">ผู้ชำระเงิน</div>
-                        <div className="text-[9px] text-black break-words">({contract.customerSnapshot.firstName} {contract.customerSnapshot.lastName})</div>
-                      </div>
-                      <div>
-                        <div className="h-9 border-b border-dotted border-black mx-6"></div>
-                        <div className="mt-1 font-semibold">{receipt.recordedBy}</div>
-                        <div className="text-[9px] text-black">ผู้รับเงิน / แคชเชียร์</div>
-                      </div>
+                    <div className="text-[9px] text-black bg-white p-1.5 rounded border border-black leading-snug">
+                      ใบเสร็จฉบับนี้เป็นหลักฐานการต่ออายุสัญญาขายฝากถึงวันที่ <strong>{formatThaiDate(latestInterestReceipt.newDueDate, true)}</strong> กรุณาเก็บรักษาไว้พร้อมตั๋วสัญญาฉบับจริง
                     </div>
-                  </div>
-                );
-              })()}
+                  </AutoFitPrintContent>
+
+                  <A5SignatureBlock
+                    leftName={customerFullName}
+                    leftRole="ผู้ชำระเงิน"
+                    rightName={latestInterestReceipt.recordedBy}
+                    rightRole="ผู้รับเงิน / แคชเชียร์"
+                    qrImageUrl={qrImageUrl}
+                  />
+                </>
+              )}
             </div>
           )}
 
@@ -575,10 +745,97 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
           {/* FORMAT 3: A5 PORTRAIT REDEEM RECEIPT (ใบเสร็จรับเงินไถ่ถอน ขนาด A5 แนวตั้ง) */}
           {/* ========================================================================= */}
           {format === 'a5_redeem_receipt' && contract.redemption && (
-            <div className="a5-portrait-sheet w-full max-w-2xl bg-white p-4 sm:p-5 rounded-lg shadow-md border border-slate-300 font-contract text-black box-border print:shadow-none print:border-none print:p-0 print:m-0 print:w-full print:max-w-full leading-tight text-[10.5px] [page-break-inside:avoid] [break-inside:avoid]">
-              {/* Header with Logo */}
-              <div className="border-b border-black pb-2 mb-2 flex items-start justify-between gap-3">
-                <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="print-page shadow-md border border-slate-300 font-contract leading-snug text-[10px] shrink-0">
+              <AutoFitPrintContent depKey={`redeem-${contract.id}-${contract.redemption.receiptNumber}`}>
+                {renderShopHeader(
+                  'ใบเสร็จรับเงินไถ่ถอน / ส่งมอบคืน (A5)',
+                  'เลขที่ใบเสร็จ',
+                  contract.redemption.receiptNumber,
+                  'สัญญาอ้างอิง',
+                  contract.contractNumber
+                )}
+
+                {/* Customer & Redemption Meta */}
+                <div className="grid grid-cols-2 gap-2 text-[9.5px] mb-2 bg-white p-2 rounded border border-black text-black leading-snug">
+                  <div className="space-y-0.5">
+                    <div className="break-words"><span>ชื่อลูกค้า: </span><strong className="text-black">{customerFullName}</strong></div>
+                    <div><span>เลขบัตร: </span><span className="font-mono text-black">{formatCitizenId(contract.customerSnapshot.citizenId)}</span></div>
+                    <div><span>เบอร์โทร: </span><span className="font-mono text-black">{formatPhone(contract.customerSnapshot.phone)}</span></div>
+                  </div>
+                  <div className="text-right space-y-0.5">
+                    <div><span>วันที่ไถ่ถอน: </span><strong className="text-black">{formatThaiDateTime(contract.redemption.redeemDate)}</strong></div>
+                    <div><span>ผู้ดำเนินการ: </span><strong className="text-black">{contract.redemption.recordedBy}</strong></div>
+                    <div><span>วิธีชำระ: </span><strong>{contract.redemption.paymentMethod === 'cash' ? 'เงินสด' : 'โอนเงินเข้าบัญชี'}</strong></div>
+                  </div>
+                </div>
+
+                {/* Returned Item & Financial Breakdown */}
+                <div className="border border-black rounded p-2 text-[10px] mb-2 space-y-1 bg-white text-black leading-snug">
+                  <div className="font-bold text-black border-b border-black pb-0.5">
+                    รายการทรัพย์สินที่ส่งมอบคืน: {contract.item.name}
+                  </div>
+                  <div className="text-[9.5px] text-black break-words">{contract.item.description}</div>
+                  {renderAssetSpecsBlock()}
+                  
+                  <div className="border-t border-black pt-1.5 mt-1 space-y-0.5 text-[9.5px] text-black">
+                    <div className="flex justify-between">
+                      <span>๑. เงินต้นที่ไถ่ถอน:</span>
+                      <strong className="font-mono text-black">{formatCurrency(contract.redemption.principalPaid)}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>๒. ดอกเบี้ยคงค้าง:</span>
+                      <strong className="font-mono text-black">{formatCurrency(contract.redemption.interestPaid)}</strong>
+                    </div>
+                    {contract.redemption.discountAmount > 0 && (
+                      <div className="flex justify-between text-black">
+                        <span>๓. ส่วนลดพิเศษ:</span>
+                        <strong className="font-mono text-black">-{formatCurrency(contract.redemption.discountAmount)}</strong>
+                      </div>
+                    )}
+                    {contract.redemption.extraFee > 0 && (
+                      <div className="flex justify-between text-black">
+                        <span>๔. ค่าปรับล่าช้า / ธรรมเนียม:</span>
+                        <strong className="font-mono text-black">+{formatCurrency(contract.redemption.extraFee)}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Total Banner */}
+                <div className="bg-white border border-black text-black p-2.5 rounded mb-2 flex justify-between items-center gap-2 text-[10px]">
+                  <div>
+                    <div className="text-black text-[9px]">ยอดรวมทั้งสิ้นที่ชำระไถ่ถอน:</div>
+                    <div className="text-base font-bold font-mono text-black leading-snug">{formatCurrency(contract.redemption.totalPaid)}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-black text-[9px]">ตัวอักษร:</div>
+                    <div className="text-black font-medium break-words">({bahtToText(contract.redemption.totalPaid)})</div>
+                  </div>
+                </div>
+
+                <p className="text-[9px] text-black bg-white p-1.5 rounded border border-black leading-snug">
+                  ผู้ขายฝากได้รับมอบทรัพย์สินตามรายการข้างต้นคืนในสภาพเรียบร้อย ถูกต้องตามความประสงค์แล้ว และไม่ติดใจเรียกร้องสิทธิใดๆ ต่อไป
+                </p>
+              </AutoFitPrintContent>
+
+              <A5SignatureBlock
+                leftName={customerFullName}
+                leftRole="ผู้รับมอบทรัพย์สินคืน"
+                rightName={contract.redemption.recordedBy}
+                rightRole="ผู้ส่งมอบทรัพย์สิน / เจ้าหน้าที่"
+                qrImageUrl={qrImageUrl}
+              />
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* FORMAT 4: SLIP / SUMMARY TICKET LAID OUT ON A5 PORTRAIT (ตั๋วสลิปย่อบน A5) */}
+          {/* ========================================================================= */}
+          {format === 'slip' && (
+            <div className="print-page shadow-md border border-slate-300 font-contract leading-snug text-[10px] shrink-0">
+              <AutoFitPrintContent depKey={`slip-${contract.id}-${contract.startDate}`}>
+                {/* Receipt Header adapted cleanly for A5 */}
+                <div className="text-center pb-2 border-b border-dashed border-black mb-2">
                   <img
                     src={effectiveLogo}
                     alt="Logo"
@@ -587,241 +844,261 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                         e.currentTarget.src = '/shop_logo.jpg';
                       }
                     }}
-                    className="w-12 h-12 rounded object-contain bg-white p-0.5 border border-slate-300 shrink-0"
+                    className="w-12 h-12 mx-auto mb-1 rounded object-contain bg-white p-0.5 border border-black"
                   />
-                  <div className="min-w-0 flex-1">
-                    <h2 className="text-base font-bold text-black break-words leading-tight">{settings.shopName || 'พัทลุงปริ้นเตอร์ คอมพิวเตอร์'}</h2>
-                    <p className="text-[10px] text-black font-medium leading-tight">{settings.branchName} · โทร. {settings.phone}</p>
-                    <p className="text-[9.5px] text-black leading-tight break-words">{settings.address}</p>
+                  <div className="font-bold text-sm tracking-tight text-black leading-snug">
+                    {settings.shopName || 'พัทลุงปริ้นเตอร์ คอมพิวเตอร์'}
+                  </div>
+                  <div className="text-[9.5px] text-black">
+                    {settings.branchName} · โทร: {settings.phone}
+                    {settings.promptPayId ? ` · พร้อมเพย์: ${settings.promptPayId}` : ''}
+                  </div>
+                  <div className="inline-block font-bold text-[10.5px] mt-1.5 px-4 py-0.5 border border-black rounded bg-white text-black">
+                    ใบตั๋วสลิปขายฝาก / จำนำไอที (A5)
                   </div>
                 </div>
 
-                <div className="text-right shrink-0">
-                  <span className="inline-block border border-black bg-white text-black font-bold px-2 py-0.5 rounded text-[10px]">
-                    ใบเสร็จรับเงินไถ่ถอน / ส่งมอบคืน (A5)
-                  </span>
-                  <div className="text-[10px] text-black mt-1">เลขที่ใบเสร็จ: <strong className="font-mono text-black">{contract.redemption.receiptNumber}</strong></div>
-                  <div className="text-[9.5px] text-black">สัญญาอ้างอิง: <strong className="font-mono text-black">{contract.contractNumber}</strong></div>
-                </div>
-              </div>
-
-              {/* Customer & Redemption Meta */}
-              <div className="grid grid-cols-2 gap-2 text-[10px] mb-2 bg-white p-2 rounded border border-black text-black">
-                <div>
-                  <div className="break-words"><span className="text-slate-600">ชื่อลูกค้า: </span><strong className="text-black">{contract.customerSnapshot.prefix}{contract.customerSnapshot.firstName} {contract.customerSnapshot.lastName}</strong></div>
-                  <div><span className="text-slate-600">เลขบัตร: </span><span className="font-mono text-black">{formatCitizenId(contract.customerSnapshot.citizenId)}</span></div>
-                </div>
-                <div className="text-right">
-                  <div><span className="text-slate-600">วันที่ไถ่ถอน: </span><strong className="text-black">{formatThaiDateTime(contract.redemption.redeemDate)}</strong></div>
-                  <div><span className="text-slate-600">ผู้ดำเนินการ: </span><strong className="text-black">{contract.redemption.recordedBy}</strong></div>
-                </div>
-              </div>
-
-              {/* Returned Item & Financial Breakdown */}
-              <div className="border border-black rounded p-2 text-[10.5px] mb-2 space-y-1 bg-white text-black">
-                <div className="font-bold text-black border-b border-black pb-0.5">
-                  รายการทรัพย์สินที่ส่งมอบคืน: {contract.item.name}
-                </div>
-                <div className="text-[10px] text-black break-words">{contract.item.description}</div>
-                
-                <div className="border-t border-slate-300 pt-1 space-y-0.5 text-[10px] text-black">
-                  <div className="flex justify-between">
-                    <span>๑. เงินต้นที่ไถ่ถอน:</span>
-                    <strong className="font-mono text-black">{formatCurrency(contract.redemption.principalPaid)}</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>๒. ดอกเบี้ยคงค้าง:</span>
-                    <strong className="font-mono text-black">{formatCurrency(contract.redemption.interestPaid)}</strong>
-                  </div>
-                  {contract.redemption.discountAmount > 0 && (
-                    <div className="flex justify-between text-black">
-                      <span>๓. ส่วนลดพิเศษ:</span>
-                      <strong className="font-mono text-black">-{formatCurrency(contract.redemption.discountAmount)}</strong>
+                {/* Key-Value Summary Grid */}
+                <div className="grid grid-cols-2 gap-3 py-2 border-b border-dashed border-black text-[9.5px]">
+                  <div className="space-y-1">
+                    <div className="flex justify-between gap-2">
+                      <span>เลขที่สัญญา:</span>
+                      <strong className="font-mono font-bold text-[11px]">{contract.contractNumber}</strong>
                     </div>
-                  )}
-                  {contract.redemption.extraFee > 0 && (
-                    <div className="flex justify-between text-black">
-                      <span>๔. ค่าปรับล่าช้า / ธรรมเนียม:</span>
-                      <strong className="font-mono text-black">+{formatCurrency(contract.redemption.extraFee)}</strong>
+                    <div className="flex justify-between gap-2">
+                      <span>วันที่ทำรายการ:</span>
+                      <span>{formatThaiDate(contract.startDate)}</span>
                     </div>
-                  )}
-                </div>
-              </div>
+                    <div className="flex justify-between gap-2">
+                      <span>ระยะเวลา:</span>
+                      <span>{formatDurationText(contract.durationMonths, contract.durationDays)}</span>
+                    </div>
+                    <div className="flex justify-between gap-2 font-bold">
+                      <span>วันครบกำหนด:</span>
+                      <span className="underline">{formatThaiDate(contract.dueDate, true)}</span>
+                    </div>
+                  </div>
 
-              {/* Total Banner - INK SAVER */}
-              <div className="bg-white border border-black text-black p-2.5 rounded mb-2 flex justify-between items-center text-[10.5px]">
-                <div>
-                  <div className="text-black text-[9.5px]">ยอดรวมทั้งสิ้นที่ชำระไถ่ถอน:</div>
-                  <div className="text-base font-bold font-mono text-black">{formatCurrency(contract.redemption.totalPaid)}</div>
+                  <div className="space-y-1 border-l border-dashed border-black pl-3">
+                    <div className="break-words">
+                      <strong>ผู้ขายฝาก:</strong> {customerFullName}
+                    </div>
+                    <div>
+                      <strong>เลขบัตร:</strong> <span className="font-mono">{formatCitizenId(contract.customerSnapshot.citizenId)}</span>
+                    </div>
+                    <div>
+                      <strong>โทร:</strong> <span className="font-mono">{formatPhone(contract.customerSnapshot.phone)}</span>
+                    </div>
+                    <div className="break-words">
+                      <strong>จุดเก็บ:</strong> {contract.storageLocation || 'ตู้นิรภัยไอที'}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-black text-[9.5px]">ตัวอักษร:</div>
-                  <div className="text-black font-medium">{bahtToText(contract.redemption.totalPaid)}</div>
-                </div>
-              </div>
 
-              <p className="text-[9.5px] text-black mb-2 bg-white p-1.5 rounded border border-black leading-snug">
-                ผู้ขายฝากได้รับมอบทรัพย์สินตามรายการข้างต้นคืนในสภาพเรียบร้อย ถูกต้องตามความประสงค์แล้ว และไม่ติดใจเรียกร้องสิทธิใดๆ ต่อไป
-              </p>
+                {/* Asset Summary */}
+                <div className="py-2 border-b border-dashed border-black space-y-1">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="font-bold">รายการทรัพย์สิน ({categoryLabel}):</span>
+                  </div>
+                  <div className="font-bold text-[11px] break-words">{contract.item.name}</div>
+                  <div className="text-[9.5px] text-black break-words">{contract.item.description}</div>
+                  {renderAssetSpecsBlock()}
+                </div>
 
-              {/* Signatures */}
-              <div className="grid grid-cols-2 gap-8 text-center text-[10px] pt-3 border-t border-black text-black [page-break-inside:avoid] [break-inside:avoid]">
-                <div>
-                  <div className="h-9 border-b border-dotted border-black mx-6"></div>
-                  <div className="mt-1 font-semibold break-words">({contract.customerSnapshot.prefix}{contract.customerSnapshot.firstName} {contract.customerSnapshot.lastName})</div>
-                  <div className="text-[9px] text-black">ผู้รับมอบทรัพย์สินคืน</div>
+                {/* Financial Totals */}
+                <div className="my-2 p-2.5 border border-black rounded bg-white flex justify-between items-center gap-2">
+                  <div>
+                    <div className="text-[9px]">เงินต้นที่รับ:</div>
+                    <div className="text-lg font-bold font-mono leading-snug">{formatCurrency(contract.loanAmount)}</div>
+                    <div className="text-[9px] font-medium">({bahtToText(contract.loanAmount)})</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-[9px]">ดอกเบี้ย ({contract.monthlyInterestRate}% / เดือน):</div>
+                    <div className="text-sm font-bold font-mono leading-snug">฿{periodInterest.toLocaleString()} / งวด</div>
+                    <div className="text-[9px]">(เฉลี่ย {formatCurrency(monthlyInterest)} / เดือน)</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="h-9 border-b border-dotted border-black mx-6"></div>
-                  <div className="mt-1 font-semibold">{contract.redemption.recordedBy}</div>
-                  <div className="text-[9px] text-black">ผู้ส่งมอบทรัพย์สิน / เจ้าหน้าที่</div>
+
+                {/* Transfer Info & Note */}
+                <div className="border border-dashed border-black rounded p-2 text-[9px] space-y-0.5 leading-snug">
+                  <div>
+                    <strong>โอนต่อดอกเบี้ย:</strong> {settings.bankName} เลขบัญชี <strong className="font-mono">{settings.bankAccountNumber}</strong> ({settings.bankAccountName})
+                  </div>
+                  <div>
+                    <strong>พร้อมเพย์:</strong> <span className="font-mono">{settings.promptPayId}</span> · แจ้งสลิปทาง Line: <strong>{settings.lineId || 'poi1800'}</strong>
+                  </div>
+                  <div>
+                    * พ้นกำหนดและระยะผ่อนผัน {settings.gracePeriodDays || 15} วัน ทรัพย์สินตกเป็นกรรมสิทธิ์ของร้านทันที
+                  </div>
                 </div>
-              </div>
+              </AutoFitPrintContent>
+
+              <A5SignatureBlock
+                leftName={customerFullName}
+                leftRole="ผู้ขายฝาก / จำนำ"
+                rightName={staffOrManagerName}
+                rightRole="เจ้าหน้าที่ผู้ทำรายการ"
+                qrImageUrl={qrImageUrl}
+              />
             </div>
           )}
 
           {/* ========================================================================= */}
-          {/* FORMAT 4: THERMAL SLIP 80MM */}
-          {/* ========================================================================= */}
-          {format === 'slip' && (
-            <div className="w-[320px] bg-white p-4 shadow-md border border-slate-300 font-mono text-[11px] leading-tight text-slate-900 print:shadow-none print:border-none print:p-0 print:m-0 print:w-full">
-              <div className="text-center pb-2 border-b border-dashed border-slate-400 mb-2">
-                <img
-                  src={effectiveLogo}
-                  alt="Logo"
-                  onError={(e) => {
-                    if (e.currentTarget.src !== window.location.origin + '/shop_logo.jpg') {
-                      e.currentTarget.src = '/shop_logo.jpg';
-                    }
-                  }}
-                  className="w-12 h-12 mx-auto mb-1 rounded-md object-contain bg-white p-0.5 border border-slate-200"
-                />
-                <div className="font-bold text-sm tracking-tight">{settings.shopName || 'พัทลุงปริ้นเตอร์ คอมพิวเตอร์'}</div>
-                <div className="text-[10px] text-slate-600">{settings.branchName}</div>
-                <div className="text-[10px]">โทร: {settings.phone}</div>
-                {settings.promptPayId && <div className="text-[9px] text-slate-500">พร้อมเพย์: {settings.promptPayId}</div>}
-                <div className="font-bold text-xs mt-1.5 bg-slate-100 py-0.5 border border-slate-300">ตั๋วขายฝาก / จำนำไอที</div>
-              </div>
-
-              <div className="space-y-1 py-1 border-b border-dashed border-slate-300">
-                <div className="flex justify-between">
-                  <span>เลขที่สัญญา:</span>
-                  <span className="font-bold">{contract.contractNumber}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>วันที่ทำรายการ:</span>
-                  <span>{formatThaiDate(contract.startDate)}</span>
-                </div>
-                <div className="flex justify-between font-bold text-slate-900">
-                  <span>วันครบกำหนด:</span>
-                  <span>{formatThaiDate(contract.dueDate, true)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>ระยะเวลา:</span>
-                  <span>{formatDurationText(contract.durationMonths, contract.durationDays)}</span>
-                </div>
-              </div>
-
-              <div className="space-y-1 py-1 border-b border-dashed border-slate-300">
-                <div className="break-words"><span className="text-slate-500">ผู้ขายฝาก:</span> {contract.customerSnapshot.prefix}{contract.customerSnapshot.firstName} {contract.customerSnapshot.lastName}</div>
-                <div><span className="text-slate-500">โทร:</span> {contract.customerSnapshot.phone}</div>
-              </div>
-
-              <div className="py-2 border-b border-dashed border-slate-300 space-y-1">
-                <div className="font-bold break-words">{contract.item.name}</div>
-                <div className="text-[10px] text-slate-600 break-words">{contract.item.description}</div>
-                {contract.item.notebook && (
-                  <div className="text-[9.5px] text-slate-500">S/N: {contract.item.notebook.serialNumber}</div>
-                )}
-                {contract.item.printer && (
-                  <div className="text-[9.5px] text-slate-500">S/N: {contract.item.printer.serialNumber}</div>
-                )}
-              </div>
-
-              <div className="py-2 space-y-1 border-b border-dashed border-slate-300 font-bold">
-                <div className="flex justify-between text-xs">
-                  <span>เงินต้น:</span>
-                  <span>{formatCurrency(contract.loanAmount)}</span>
-                </div>
-                <div className="flex justify-between text-[10px] text-slate-600 font-normal">
-                  <span>ดอกเบี้ย ({contract.monthlyInterestRate}%/เดือน):</span>
-                  <span>฿{periodInterest.toLocaleString()}</span>
-                </div>
-              </div>
-
-              <div className="text-center pt-2">
-                <img
-                  src={qrImageUrl}
-                  alt="QR Code"
-                  className="w-20 h-20 mx-auto border border-slate-200 p-1 mb-1"
-                />
-                <div className="text-[9px] text-slate-500">สแกนเพื่อตรวจสอบสัญญา</div>
-              </div>
-            </div>
-          )}
-
-          {/* ========================================================================= */}
-          {/* FORMAT 5: FULL A4 LEGAL CONTRACT */}
+          {/* FORMAT 5: FULL LEGAL CONTRACT ADAPTED FOR A5 PORTRAIT (2 PAGES, 6MM MARGINS) */}
           {/* ========================================================================= */}
           {format === 'full_contract' && (
-            <div className="w-full max-w-[800px] bg-white p-8 sm:p-12 rounded-lg shadow-md border border-slate-300 font-contract text-slate-900 print:shadow-none print:border-none print:p-0 print:m-0 print:w-full leading-relaxed text-xs">
-              <div className="text-center mb-6 border-b pb-4">
-                <img
-                  src={effectiveLogo}
-                  alt="Logo"
-                  onError={(e) => {
-                    if (e.currentTarget.src !== window.location.origin + '/shop_logo.jpg') {
-                      e.currentTarget.src = '/shop_logo.jpg';
-                    }
-                  }}
-                  className="w-14 h-14 mx-auto mb-2 rounded-lg object-contain bg-white p-0.5 border border-slate-300 shadow-xs"
+            <div className="flex flex-col items-center gap-4 print:block print:gap-0">
+              {/* PAGE 1 OF 2 */}
+              <div className="print-page shadow-md border border-slate-300 font-contract leading-snug text-[10px] shrink-0">
+                <AutoFitPrintContent depKey={`full-p1-${contract.id}-${contract.startDate}`}>
+                  {/* Formal Contract Header */}
+                  <div className="border-b border-black pb-2 mb-2.5 flex items-center justify-between gap-2.5">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <img
+                        src={effectiveLogo}
+                        alt="Logo"
+                        onError={(e) => {
+                          if (e.currentTarget.src !== window.location.origin + '/shop_logo.jpg') {
+                            e.currentTarget.src = '/shop_logo.jpg';
+                          }
+                        }}
+                        className="w-11 h-11 rounded object-contain bg-white p-0.5 border border-black shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <h1 className="text-[14px] font-bold tracking-tight text-black leading-snug">
+                          สัญญาขายฝากทรัพย์สินไอทีและคอมพิวเตอร์
+                        </h1>
+                        <p className="text-[9.5px] text-black leading-snug break-words">
+                          ทำขึ้น ณ {settings.shopName} · {settings.address}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="border border-black px-2 py-0.5 rounded text-[9px] font-bold">
+                        หน้า 1 / 2
+                      </div>
+                      <div className="text-[10px] mt-1">
+                        เลขที่: <strong className="font-mono">{contract.contractNumber}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Intro & Parties */}
+                  <div className="space-y-2 text-[10px] leading-relaxed">
+                    <p>
+                      สัญญาฉบับนี้ทำขึ้นเมื่อวันที่ <strong>{formatThaiDate(contract.startDate, true)}</strong> ณ {settings.shopName} ({settings.branchName}) ระหว่างคู่สัญญาดังต่อไปนี้:
+                    </p>
+
+                    <div className="p-2 rounded border border-black space-y-1.5 bg-white text-[9.5px] leading-snug">
+                      <div className="break-words">
+                        <strong>๑) ผู้รับซื้อฝาก:</strong> {settings.shopName} โดย {staffOrManagerName} (เลขประจำตัวผู้เสียภาษี {settings.taxId}) ตั้งอยู่เลขที่ {settings.address} โทร. <span className="font-mono">{formatPhone(settings.phone)}</span> ซึ่งต่อไปในสัญญานี้เรียกว่า <strong>&ldquo;ผู้รับซื้อฝาก&rdquo;</strong> ฝ่ายหนึ่ง กับ
+                      </div>
+                      <div className="border-t border-slate-300 pt-1 break-words">
+                        <strong>๒) ผู้ขายฝาก:</strong> {customerFullName} บัตรประจำตัวประชาชนเลขที่ <span className="font-mono font-bold">{formatCitizenId(contract.customerSnapshot.citizenId)}</span> ที่อยู่ {contract.customerSnapshot.address} โทร. <span className="font-mono">{formatPhone(contract.customerSnapshot.phone)}</span> ซึ่งต่อไปในสัญญานี้เรียกว่า <strong>&ldquo;ผู้ขายฝาก&rdquo;</strong> อีกฝ่ายหนึ่ง
+                      </div>
+                    </div>
+
+                    <p className="font-bold text-[10px]">
+                      คู่สัญญาทั้งสองฝ่ายตกลงทำสัญญาขายฝากทรัพย์สิน โดยมีข้อความและเงื่อนไขดังต่อไปนี้:
+                    </p>
+
+                    {/* Clause 1 */}
+                    <div className="space-y-1">
+                      <div className="break-words">
+                        <strong>ข้อ ๑. รายการทรัพย์สินและราคาขายฝาก:</strong> ผู้ขายฝากตกลงขายฝากและได้ส่งมอบทรัพย์สินประเภท <strong>{categoryLabel}</strong> คือ <strong>{contract.item.name}</strong> ({contract.item.description})
+                        {contract.item.estimatedValue > 0 && ` ราคาประเมิน ${formatCurrency(contract.item.estimatedValue)}`}
+                        {' '}ไว้แก่ผู้รับซื้อฝาก ในราคาขายฝาก (เงินต้น) ทั้งสิ้น <strong>{formatCurrency(contract.loanAmount)} ({bahtToText(contract.loanAmount)})</strong> ซึ่งผู้ขายฝากได้รับเงินจำนวนดังกล่าวครบถ้วนถูกต้องแล้วในวันทำสัญญานี้
+                      </div>
+                      {renderAssetSpecsBlock()}
+                    </div>
+
+                    {/* Clause 2 */}
+                    <div className="break-words">
+                      <strong>ข้อ ๒. กำหนดเวลาไถ่ถอนและสินน้ำใจ:</strong> คู่สัญญากำหนดระยะเวลาไถ่ถอนทรัพย์สินไว้มีกำหนด <strong>{formatDurationText(contract.durationMonths, contract.durationDays)}</strong> นับแต่วันทำสัญญานี้ โดยมีวันครบกำหนดไถ่ถอนในวันที่ <strong className="underline">{formatThaiDate(contract.dueDate, true)}</strong> ในอัตราดอกเบี้ย/สินน้ำใจร้อยละ <strong>{contract.monthlyInterestRate}% ต่อเดือน</strong> (คิดเป็นค่าตอบแทนต่องวด <strong>{formatCurrency(periodInterest)}</strong> หรือเฉลี่ยเดือนละ {formatCurrency(monthlyInterest)})
+                    </div>
+
+                    {/* Clause 3 */}
+                    <div className="break-words">
+                      <strong>ข้อ ๓. การผิดนัดและผลของการพ้นกำหนดเวลา:</strong> หากผู้ขายฝากมิได้มาใช้สิทธิไถ่ถอนหรือติดต่อขอขยายระยะเวลาภายในกำหนดเวลาในข้อ ๒ และพ้นกำหนดระยะเวลาผ่อนผันอีก <strong>{settings.gracePeriodDays || 15} วัน</strong> นับจากวันครบกำหนด ให้ถือว่าผู้ขายฝากสละสิทธิในการไถ่ถอน และกรรมสิทธิ์ในทรัพย์สินที่ขายฝากตกเป็นของผู้รับซื้อฝากโดยเด็ดขาดทันทีตามกฎหมาย โดยผู้รับซื้อฝากมีสิทธินำทรัพย์สินออกจำหน่ายจ่ายโอนได้ทันที
+                    </div>
+                  </div>
+                </AutoFitPrintContent>
+
+                {/* Page 1 Continuation Footer pinned at bottom */}
+                <div
+                  className="mt-auto flex-none pt-2 border-t border-black flex justify-between items-center text-[9px] text-black"
+                  style={{ marginTop: 'auto', flex: '0 0 auto' }}
+                >
+                  <span>สัญญาเลขที่ <strong className="font-mono">{contract.contractNumber}</strong> · ผู้ขายฝาก: {customerFullName}</span>
+                  <span className="font-bold">หน้า 1 / 2 · อ่านข้อตกลงต่อและลงลายมือชื่อหน้าถัดไป ➔</span>
+                </div>
+              </div>
+
+              {/* PAGE 2 OF 2 (WITH SIGNATURE BLOCK AT BOTTOM) */}
+              <div className="print-page shadow-md border border-slate-300 font-contract leading-snug text-[10px] shrink-0">
+                <AutoFitPrintContent depKey={`full-p2-${contract.id}-${contract.startDate}`}>
+                  {/* Page 2 Mini Header */}
+                  <div className="border-b border-black pb-1.5 mb-2.5 flex justify-between items-center text-[9.5px]">
+                    <div className="font-bold text-[11px]">
+                      สัญญาขายฝากทรัพย์สินไอทีและคอมพิวเตอร์ (ต่อ)
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span>เลขที่: <strong className="font-mono">{contract.contractNumber}</strong></span>
+                      <span className="border border-black px-2 py-0.5 rounded font-bold text-[9px]">หน้า 2 / 2</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2.5 text-[10px] leading-relaxed">
+                    {/* Clause 4: Shop Terms */}
+                    <div className="border border-black rounded p-2.5 bg-white space-y-1">
+                      <div className="font-bold border-b border-black pb-0.5 text-[10.5px]">
+                        ข้อ ๔. เงื่อนไขการรับฝาก การตรวจสอบ และความรับผิดชอบของคู่สัญญา
+                      </div>
+                      <div className="space-y-1 text-[9.5px] leading-snug">
+                        {termsLines.length > 0 ? (
+                          termsLines.map((line, idx) => (
+                            <div key={idx} className="break-words">{line}</div>
+                          ))
+                        ) : (
+                          <>
+                            <div>1. ผู้ขายฝากรับรองว่าทรัพย์สินที่นำมาขายฝากเป็นกรรมสิทธิ์ของผู้ขายฝากโดยชอบด้วยกฎหมาย มิใช่ทรัพย์สินที่ได้มาจากการกระทำผิดกฎหมาย</div>
+                            <div>2. อุปกรณ์ไอทีได้รับการตรวจเช็คสภาพและปลดล็อคบัญชี iCloud / Google / BIOS เรียบร้อยแล้ว</div>
+                            <div>3. การต่อดอกเบี้ยและการไถ่ถอนต้องนำตั๋วสัญญาฉบับจริงพร้อมบัตรประจำตัวประชาชนมาแสดง</div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Clause 5: Payment Channels */}
+                    <div className="border border-black rounded p-2.5 bg-white space-y-1 text-[9.5px] leading-snug">
+                      <div className="font-bold border-b border-black pb-0.5 text-[10.5px]">
+                        ข้อ ๕. ช่องทางชำระดอกเบี้ย / ไถ่ถอน และการติดต่อร้าน
+                      </div>
+                      <div>
+                        <strong>บัญชีธนาคารสำหรับโอนชำระ:</strong> {settings.bankName} เลขที่บัญชี <strong className="font-mono">{settings.bankAccountNumber}</strong> ชื่อบัญชี <strong>{settings.bankAccountName}</strong>
+                      </div>
+                      <div>
+                        <strong>พร้อมเพย์ (PromptPay):</strong> <strong className="font-mono">{settings.promptPayId}</strong> · <strong>Line ID:</strong> {settings.lineId} · <strong>โทร:</strong> {formatPhone(settings.phone)}
+                      </div>
+                      <div>
+                        <strong>สถานที่เก็บรักษาทรัพย์สิน:</strong> {contract.storageLocation || 'ตู้นิรภัยไอที ร้านพัทลุงปริ้นเตอร์'}
+                      </div>
+                    </div>
+
+                    {/* Legal Closing Affirmation */}
+                    <div className="p-2 border border-dashed border-black rounded text-[9.5px] leading-snug">
+                      คู่สัญญาทั้งสองฝ่ายได้อ่านและเข้าใจข้อความในสัญญาขายฝากฉบับนี้ (หน้า 1/2 และหน้า 2/2) โดยตลอดแล้ว เห็นว่าถูกต้องตรงตามเจตนาทุกประการ จึงได้ลงลายมือชื่อและประทับตรา (ถ้ามี) ไว้เป็นหลักฐานสำคัญต่อหน้าพยาน
+                    </div>
+                  </div>
+                </AutoFitPrintContent>
+
+                <A5SignatureBlock
+                  leftName={customerFullName}
+                  leftRole="ผู้ขายฝาก / จำนำ"
+                  rightName={staffOrManagerName}
+                  rightRole="ผู้รับซื้อฝาก / ผู้จัดการ"
+                  qrImageUrl={qrImageUrl}
                 />
-                <h1 className="text-xl font-bold tracking-tight text-slate-900">สัญญาขายฝากทรัพย์สินไอทีและคอมพิวเตอร์</h1>
-                <p className="text-xs text-slate-600 mt-0.5">สัญญาเลขที่: <span className="font-mono font-bold">{contract.contractNumber}</span></p>
-                <p className="text-xs text-slate-500">ทำขึ้น ณ {settings.shopName} · {settings.address}</p>
-              </div>
-
-              <div className="space-y-3 mb-6 text-xs text-justify">
-                <p>
-                  สัญญานี้ทำขึ้นเมื่อวันที่ <strong>{formatThaiDate(contract.startDate, true)}</strong> ณ {settings.shopName} ระหว่าง:
-                </p>
-                <div className="p-3 bg-slate-50 rounded border border-slate-200 space-y-1">
-                  <div>
-                    <strong>ผู้รับซื้อฝาก:</strong> {settings.shopName} โดย {settings.ownerName} ตั้งอยู่เลขที่ {settings.address} โทร. {settings.phone} ฝ่ายหนึ่ง และ
-                  </div>
-                  <div>
-                    <strong>ผู้ขายฝาก:</strong> {contract.customerSnapshot.prefix}{contract.customerSnapshot.firstName} {contract.customerSnapshot.lastName} บัตรประชาชนเลขที่ {formatCitizenId(contract.customerSnapshot.citizenId)} ที่อยู่ {contract.customerSnapshot.address} โทร. {formatPhone(contract.customerSnapshot.phone)} อีกฝ่ายหนึ่ง
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-2">
-                  <div>
-                    <strong>ข้อ ๑.</strong> ผู้ขายฝากได้นำทรัพย์สิน คือ <strong>{contract.item.name}</strong> ({contract.item.description})
-                    {contract.item.notebook && ` S/N: ${contract.item.notebook.serialNumber} ซีพียู ${contract.item.notebook.processor} แรม ${contract.item.notebook.ramGb}GB ความจุ ${contract.item.notebook.storage}`}
-                    {contract.item.printer && ` S/N: ${contract.item.printer.serialNumber} ปริ้นเตอร์ ${contract.item.printer.brand} ${contract.item.printer.model}`}
-                    {' '}มาส่งมอบและขายฝากไว้แก่ผู้รับซื้อฝากในราคาทั้งสิ้น <strong>{formatCurrency(contract.loanAmount)} ({bahtToText(contract.loanAmount)})</strong> และผู้ขายฝากได้รับเงินดังกล่าวไปครบถ้วนถูกต้องแล้วในวันทำสัญญานี้
-                  </div>
-                  <div>
-                    <strong>ข้อ ๒.</strong> คู่สัญญาทั้งสองฝ่ายตกลงกำหนดเวลาไถ่ถอนทรัพย์สินไว้มีกำหนด <strong>{formatDurationText(contract.durationMonths, contract.durationDays)}</strong> นับแต่วันทำสัญญานี้ โดยมีวันครบกำหนดไถ่ถอนในวันที่ <strong>{formatThaiDate(contract.dueDate, true)}</strong> ในอัตราสินน้ำใจหรือดอกเบี้ยร้อยละ <strong>{contract.monthlyInterestRate}% ต่อเดือน</strong>
-                  </div>
-                  <div>
-                    <strong>ข้อ ๓.</strong> หากผู้ขายฝากมิได้มาใช้สิทธิไถ่ถอนทรัพย์สินภายในกำหนดเวลาดังกล่าว และพ้นกำหนดระยะเวลาผ่อนผัน <strong>{settings.gracePeriodDays || 15} วัน</strong> ให้ถือว่ากรรมสิทธิ์ในทรัพย์สินที่ขายฝากตกเป็นของผู้รับซื้อฝากโดยเด็ดขาดทันที ตามประมวลกฎหมายแพ่งและพาณิชย์
-                  </div>
-                </div>
-              </div>
-
-              {/* Signatures */}
-              <div className="grid grid-cols-2 gap-8 pt-8 mt-6 border-t border-slate-300 text-center text-xs">
-                <div>
-                  <div className="h-12 border-b border-dotted border-slate-400 mx-6"></div>
-                  <div className="mt-1 font-semibold">({contract.customerSnapshot.prefix}{contract.customerSnapshot.firstName} {contract.customerSnapshot.lastName})</div>
-                  <div className="text-[11px] text-slate-500">ผู้ขายฝาก / จำนำ</div>
-                </div>
-                <div>
-                  <div className="h-12 border-b border-dotted border-slate-400 mx-6"></div>
-                  <div className="mt-1 font-semibold">({settings.ownerName || 'ผู้รับซื้อฝาก'})</div>
-                  <div className="text-[11px] text-slate-500">ผู้รับซื้อฝาก / จนท.</div>
-                </div>
               </div>
             </div>
           )}

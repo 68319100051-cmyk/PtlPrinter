@@ -464,7 +464,7 @@ export default function App() {
   };
 
   return (
-    <div className="h-screen max-h-screen w-full max-w-full flex flex-col font-sans bg-slate-100 overflow-hidden">
+    <div className="h-screen max-h-screen w-full max-w-full flex flex-col font-sans bg-slate-100 overflow-hidden print:h-auto print:max-h-none print:overflow-visible print:block print:bg-white">
       {/* Top Bar Navigation */}
       <TopNav
         currentTab={currentTab}
@@ -498,7 +498,7 @@ export default function App() {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 min-h-0 p-2 sm:p-3 max-w-[1720px] mx-auto w-full flex flex-col overflow-hidden">
+      <main className={`flex-1 min-h-0 p-2 sm:p-3 max-w-[1720px] mx-auto w-full flex flex-col overflow-hidden ${isPrintOpen || isPrintBuyInOpen || isCustomerTagPrintOpen ? 'no-print' : ''}`}>
         {currentTab === 'workstation' && (
           <Workstation
             contracts={contracts}
