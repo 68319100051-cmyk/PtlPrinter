@@ -23,8 +23,10 @@ interface PrintTicketModalProps {
 }
 
 /**
- * Automatically shrinks content proportionally ONLY when its natural height
- * exceeds the available space above .signature-block inside a 148mm x 210mm A5 page.
+ * Adjusts A5 print content in two directions:
+ * - Expands density cleanly via CSS variables (--gap first 1.0..1.9, then --fs 1.0..1.22)
+ *   to fill ~92–95% of available space while keeping ~8–12mm breathing room above .signature-block.
+ * - Shrinks via transform scale (down to 0.62) only when natural baseline height exceeds availableHeight.
  */
 const AutoFitPrintContent: React.FC<{
   children: React.ReactNode;
@@ -32,78 +34,164 @@ const AutoFitPrintContent: React.FC<{
 }> = ({ children, depKey }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const innerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState<number>(1);
+  const [metrics, setMetrics] = useState<{ fs: number; gap: number; scale: number }>({
+    fs: 1,
+    gap: 1,
+    scale: 1,
+  });
 
-  const recalculateScale = useCallback(() => {
+  const fitDensity = useCallback(() => {
     const container = containerRef.current;
     const inner = innerRef.current;
     if (!container || !inner) return;
 
-    // Measure at natural 100% width so scale never oscillates
-    const prevTransform = inner.style.transform;
-    const prevOrigin = inner.style.transformOrigin;
-    const prevWidth = inner.style.width;
+    // Reset to baseline (fs=1, gap=1, scale=1) before measuring so layout never oscillates
     inner.style.transform = '';
     inner.style.transformOrigin = '';
     inner.style.width = '';
+    inner.style.setProperty('--fs', '1');
+    inner.style.setProperty('--gap', '1');
 
     const availableHeight = container.clientHeight;
     const naturalHeight = inner.scrollHeight;
 
-    inner.style.transform = prevTransform;
-    inner.style.transformOrigin = prevOrigin;
-    inner.style.width = prevWidth;
+    let nextFs = 1;
+    let nextGap = 1;
+    let nextScale = 1;
 
-    if (availableHeight > 0 && naturalHeight > availableHeight) {
-      const nextScale = Math.max(0.62, Math.floor(((availableHeight - 2) / naturalHeight) * 1000) / 1000);
-      setScale(nextScale);
-    } else {
-      setScale(1);
+    if (availableHeight > 0) {
+      if (naturalHeight > availableHeight) {
+        nextScale = Math.max(
+          0.62,
+          Math.floor(((availableHeight - 2) / naturalHeight) * 1000) / 1000
+        );
+      } else {
+        const minTarget = availableHeight * 0.92;
+        const maxTarget = Math.max(
+          minTarget,
+          Math.min(availableHeight * 0.95, availableHeight - 28)
+        );
+
+        if (naturalHeight < minTarget) {
+          const measureHeight = (testFs: number, testGap: number) => {
+            inner.style.setProperty('--fs', String(testFs));
+            inner.style.setProperty('--gap', String(testGap));
+            return inner.scrollHeight;
+          };
+
+          // Phase 1: expand spacing (--gap 1.0 -> 1.9) first
+          if (measureHeight(1, 1.9) >= minTarget) {
+            let lo = 1.0;
+            let hi = 1.9;
+            let bestGap = 1.0;
+            for (let i = 0; i < 8; i++) {
+              const mid = (lo + hi) / 2;
+              if (measureHeight(1, mid) <= maxTarget) {
+                bestGap = mid;
+                lo = mid;
+              } else {
+                hi = mid;
+              }
+            }
+            nextGap = Math.round(bestGap * 1000) / 1000;
+          } else {
+            // Phase 2: --gap maxed at 1.9 -> expand font size (--fs 1.0 -> 1.22)
+            nextGap = 1.9;
+            if (measureHeight(1.22, 1.9) <= maxTarget) {
+              nextFs = 1.22;
+            } else {
+              let lo = 1.0;
+              let hi = 1.22;
+              let bestFs = 1.0;
+              for (let i = 0; i < 8; i++) {
+                const mid = (lo + hi) / 2;
+                if (measureHeight(mid, 1.9) <= maxTarget) {
+                  bestFs = mid;
+                  lo = mid;
+                } else {
+                  hi = mid;
+                }
+              }
+              nextFs = Math.round(bestFs * 1000) / 1000;
+            }
+          }
+        }
+      }
     }
+
+    // Apply computed metrics immediately to DOM (critical for synchronous beforeprint snapshots)
+    inner.style.setProperty('--fs', String(nextFs));
+    inner.style.setProperty('--gap', String(nextGap));
+    if (nextScale < 1) {
+      inner.style.transform = `scale(${nextScale})`;
+      inner.style.transformOrigin = 'top left';
+      inner.style.width = `${100 / nextScale}%`;
+    } else {
+      inner.style.transform = '';
+      inner.style.transformOrigin = '';
+      inner.style.width = '';
+    }
+
+    setMetrics((prev) =>
+      Math.abs(prev.fs - nextFs) < 0.002 &&
+      Math.abs(prev.gap - nextGap) < 0.002 &&
+      Math.abs(prev.scale - nextScale) < 0.002
+        ? prev
+        : { fs: nextFs, gap: nextGap, scale: nextScale }
+    );
   }, []);
 
   useLayoutEffect(() => {
-    recalculateScale();
-  }, [depKey, recalculateScale]);
+    fitDensity();
+  }, [depKey, fitDensity]);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
     const observer = new ResizeObserver(() => {
-      recalculateScale();
+      fitDensity();
     });
     observer.observe(container);
 
     const handleBeforePrint = () => {
-      recalculateScale();
+      fitDensity();
     };
     window.addEventListener('beforeprint', handleBeforePrint);
 
+    let cancelled = false;
     if (typeof document !== 'undefined' && document.fonts?.ready) {
       document.fonts.ready.then(() => {
-        recalculateScale();
+        if (!cancelled) {
+          fitDensity();
+        }
       });
     }
 
     return () => {
+      cancelled = true;
       observer.disconnect();
       window.removeEventListener('beforeprint', handleBeforePrint);
     };
-  }, [recalculateScale]);
+  }, [fitDensity]);
 
   return (
     <div ref={containerRef} className="print-content overflow-hidden">
       <div
         ref={innerRef}
+        className="print-doc-scale"
         style={
-          scale < 1
-            ? {
-                transform: `scale(${scale})`,
-                transformOrigin: 'top left',
-                width: `${100 / scale}%`,
-              }
-            : undefined
+          {
+            '--fs': String(metrics.fs),
+            '--gap': String(metrics.gap),
+            ...(metrics.scale < 1
+              ? {
+                  transform: `scale(${metrics.scale})`,
+                  transformOrigin: 'top left',
+                  width: `${100 / metrics.scale}%`,
+                }
+              : {}),
+          } as React.CSSProperties
         }
       >
         {children}
@@ -210,7 +298,7 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
   const renderAssetSpecsBlock = () => (
     <>
       {contract.item.notebook && (
-        <div className="grid grid-cols-2 gap-1 bg-white p-1.5 rounded border border-black text-[9.5px] mt-1 font-mono text-black leading-snug">
+        <div className="grid grid-cols-2 gap-[calc(4px*var(--pad))] bg-white p-[calc(6px*var(--pad))] rounded border border-black text-[0.95em] mt-[calc(4px*var(--pad))] font-mono text-black">
           <div className="break-words"><strong>S/N:</strong> {contract.item.notebook.serialNumber}</div>
           <div className="break-words"><strong>CPU:</strong> {contract.item.notebook.processor}</div>
           <div className="break-words"><strong>RAM:</strong> {contract.item.notebook.ramGb}GB / <strong>Storage:</strong> {contract.item.notebook.storage}</div>
@@ -219,7 +307,7 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
       )}
 
       {contract.item.printer && (
-        <div className="grid grid-cols-2 gap-1 bg-white p-1.5 rounded border border-black text-[9.5px] mt-1 text-black leading-snug">
+        <div className="grid grid-cols-2 gap-[calc(4px*var(--pad))] bg-white p-[calc(6px*var(--pad))] rounded border border-black text-[0.95em] mt-[calc(4px*var(--pad))] text-black">
           <div className="break-words"><strong>S/N:</strong> <span className="font-mono">{contract.item.printer.serialNumber}</span></div>
           <div className="break-words"><strong>ยี่ห้อ/รุ่น:</strong> {contract.item.printer.brand} {contract.item.printer.model}</div>
           <div className="break-words"><strong>ระบบหมึก:</strong> {contract.item.printer.inkSystem === 'genuine_tank' ? 'แท็งก์แท้ศูนย์' : 'ตลับหมึก'}</div>
@@ -228,7 +316,7 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
       )}
 
       {contract.item.computer && (
-        <div className="grid grid-cols-2 gap-1 bg-white p-1.5 rounded border border-black text-[9.5px] mt-1 text-black leading-snug">
+        <div className="grid grid-cols-2 gap-[calc(4px*var(--pad))] bg-white p-[calc(6px*var(--pad))] rounded border border-black text-[0.95em] mt-[calc(4px*var(--pad))] text-black">
           <div className="break-words"><strong>เคส/แบรนด์:</strong> {contract.item.computer.brandOrCustom}</div>
           <div className="break-words"><strong>ซีพียู/แรม:</strong> {contract.item.computer.processor} (RAM {contract.item.computer.ramGb}GB)</div>
           <div className="break-words"><strong>การ์ดจอ:</strong> {contract.item.computer.gpu || '-'}</div>
@@ -237,14 +325,14 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
       )}
 
       {contract.item.phone && (
-        <div className="grid grid-cols-2 gap-1 bg-white p-1.5 rounded border border-black text-[9.5px] mt-1 font-mono text-black leading-snug">
+        <div className="grid grid-cols-2 gap-[calc(4px*var(--pad))] bg-white p-[calc(6px*var(--pad))] rounded border border-black text-[0.95em] mt-[calc(4px*var(--pad))] font-mono text-black">
           <div className="break-words"><strong>IMEI / S/N:</strong> {contract.item.phone.imei}</div>
           <div className="break-words"><strong>ความจุ:</strong> {contract.item.phone.storageGb} · <strong>iCloud:</strong> {contract.item.phone.icloudStatus === 'unlocked' ? 'ปลดล็อคแล้ว' : 'ติดรหัส'}</div>
         </div>
       )}
 
       {contract.item.itGadget && (
-        <div className="grid grid-cols-2 gap-1 bg-white p-1.5 rounded border border-black text-[9.5px] mt-1 text-black leading-snug">
+        <div className="grid grid-cols-2 gap-[calc(4px*var(--pad))] bg-white p-[calc(6px*var(--pad))] rounded border border-black text-[0.95em] mt-[calc(4px*var(--pad))] text-black">
           <div className="break-words"><strong>ยี่ห้อ/รุ่น:</strong> {contract.item.itGadget.brand} {contract.item.itGadget.model}</div>
           <div className="break-words"><strong>S/N:</strong> <span className="font-mono">{contract.item.itGadget.serialNumber || '-'}</span></div>
           <div className="col-span-2 break-words"><strong>รายละเอียด:</strong> {contract.item.itGadget.specsSummary}</div>
@@ -254,9 +342,9 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
   );
 
   const renderShopHeader = (badgeTitle: string, rightTopLabel: string, rightTopValue: string, rightSubLabel: string, rightSubValue: string) => (
-    <div className="border-b border-black pb-2 mb-2">
-      <div className="flex justify-between items-start gap-2.5">
-        <div className="flex items-center gap-2 min-w-0 flex-1">
+    <div className="border-b border-black pb-[calc(8px*var(--gap))] mb-[calc(8px*var(--gap))]">
+      <div className="flex justify-between items-start gap-[calc(10px*var(--pad))]">
+        <div className="flex items-center gap-[calc(8px*var(--pad))] min-w-0 flex-1">
           <img
             src={effectiveLogo}
             alt="Logo"
@@ -268,30 +356,30 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
             className="w-11 h-11 rounded object-contain bg-white p-0.5 border border-black shrink-0"
           />
           <div className="min-w-0 flex-1">
-            <h1 className="text-[13.5px] font-bold tracking-tight text-black break-words leading-snug">
+            <h1 className="text-[1.35em] font-bold tracking-tight text-black break-words">
               {settings.shopName || 'พัทลุงปริ้นเตอร์ คอมพิวเตอร์'}
             </h1>
-            <p className="text-[9.5px] text-black font-medium leading-snug">
+            <p className="text-[0.95em] text-black font-medium">
               {settings.branchName} · โทร. {settings.phone}
             </p>
-            <p className="text-[9px] text-black leading-snug break-words">
+            <p className="text-[0.9em] text-black break-words">
               {settings.address}
             </p>
-            <p className="text-[9px] text-black leading-snug">
+            <p className="text-[0.9em] text-black">
               Line: {settings.lineId} · Facebook: {settings.facebook || 'พัทลุงปริ้นเตอร์'}
             </p>
           </div>
         </div>
 
         <div className="text-right shrink-0 flex flex-col items-end">
-          <span className="inline-block border border-black bg-white text-black font-bold px-2 py-0.5 rounded text-[9.5px] tracking-wide mb-1 whitespace-nowrap">
+          <span className="inline-block border border-black bg-white text-black font-bold px-2 py-0.5 rounded text-[0.95em] tracking-wide mb-[calc(4px*var(--pad))] whitespace-nowrap">
             {badgeTitle}
           </span>
-          <div className="text-[10.5px] text-black leading-snug">
+          <div className="text-[1.05em] text-black">
             <span className="font-normal">{rightTopLabel}: </span>
-            <strong className="font-mono font-bold text-[12px] text-black">{rightTopValue}</strong>
+            <strong className="font-mono font-bold text-[1.15em] text-black">{rightTopValue}</strong>
           </div>
-          <div className="text-[9.5px] text-black mt-0.5 leading-snug">
+          <div className="text-[0.95em] text-black mt-[calc(2px*var(--pad))]">
             <span>{rightSubLabel}: </span>
             <strong>{rightSubValue}</strong>
           </div>
@@ -486,7 +574,7 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
           {/* ========================================================================= */}
           {format === 'a5_ticket' && (
             <div className="print-page shadow-md border border-slate-300 font-contract leading-snug text-[10px] shrink-0">
-              <AutoFitPrintContent depKey={`ticket-${contract.id}-${contract.createdAt}-${contract.amendmentLogs.length}`}>
+              <AutoFitPrintContent depKey={`ticket-${contract.id}-${contract.createdAt}-${contract.amendmentLogs.length}-${contract.item.name}-${contract.item.description}`}>
                 {renderShopHeader(
                   'ตั๋วสัญญาขายฝาก / จำนำไอที (A5)',
                   'เลขที่สัญญา',
@@ -496,13 +584,13 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                 )}
 
                 {/* Customer & Pledged Terms Summary */}
-                <div className="grid grid-cols-2 gap-2 mb-2">
-                  <div className="bg-white p-2 rounded border border-black text-black">
-                    <div className="font-bold text-black border-b border-black pb-0.5 mb-1 text-[10px] flex justify-between items-center">
+                <div className="grid grid-cols-2 gap-[calc(8px*var(--gap))] mb-[calc(8px*var(--gap))]">
+                  <div className="bg-white p-[calc(8px*var(--pad))] rounded border border-black text-black">
+                    <div className="font-bold text-black border-b border-black pb-[calc(2px*var(--pad))] mb-[calc(4px*var(--pad))] text-[1em] flex justify-between items-center">
                       <span>ข้อมูลผู้ขายฝาก / จำนำ</span>
-                      <span className="text-[9px] text-black font-mono">ID: {contract.customerId}</span>
+                      <span className="text-[0.9em] text-black font-mono">ID: {contract.customerId}</span>
                     </div>
-                    <div className="space-y-0.5 text-[9.5px] leading-snug">
+                    <div className="space-y-[calc(2px*var(--pad))] text-[0.95em]">
                       <div className="break-words">
                         <span>ชื่อ-สกุล: </span>
                         <strong className="text-black font-bold">{customerFullName}</strong>
@@ -515,18 +603,18 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                         <span>เบอร์โทรศัพท์: </span>
                         <strong className="font-mono text-black">{formatPhone(contract.customerSnapshot.phone)}</strong>
                       </div>
-                      <div className="text-[9px] text-black break-words leading-snug">
+                      <div className="text-[0.9em] text-black break-words">
                         <span>ที่อยู่: </span>{contract.customerSnapshot.address}
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-white p-2 rounded border border-black text-black">
-                    <div className="font-bold text-black border-b border-black pb-0.5 mb-1 text-[10px] flex justify-between items-center">
+                  <div className="bg-white p-[calc(8px*var(--pad))] rounded border border-black text-black">
+                    <div className="font-bold text-black border-b border-black pb-[calc(2px*var(--pad))] mb-[calc(4px*var(--pad))] text-[1em] flex justify-between items-center">
                       <span>เงื่อนไขระยะเวลา & ครบกำหนด</span>
                       <span className="font-mono text-black font-bold">{formatDurationText(contract.durationMonths, contract.durationDays)}</span>
                     </div>
-                    <div className="space-y-0.5 text-[9.5px] leading-snug">
+                    <div className="space-y-[calc(2px*var(--pad))] text-[0.95em]">
                       <div>
                         <span>ระยะเวลาสัญญา: </span>
                         <strong className="text-black">{formatDurationText(contract.durationMonths, contract.durationDays)}</strong>
@@ -539,7 +627,7 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                         <span>อัตราดอกเบี้ย: </span>
                         <strong className="text-black">{contract.monthlyInterestRate}% ต่อเดือน</strong>
                       </div>
-                      <div className="text-[9px] text-black break-words leading-snug">
+                      <div className="text-[0.9em] text-black break-words">
                         <span>ที่เก็บรักษา: </span>
                         <span className="text-black">{contract.storageLocation || 'ตู้นิรภัยไอที ร้านพัทลุงปริ้นเตอร์'}</span>
                       </div>
@@ -548,55 +636,55 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                 </div>
 
                 {/* Item Details Box */}
-                <div className="border border-black rounded p-2 mb-2 bg-white text-black">
-                  <div className="font-bold text-black border-b border-black pb-0.5 mb-1 flex justify-between items-center text-[10px]">
+                <div className="border border-black rounded p-[calc(8px*var(--pad))] mb-[calc(8px*var(--gap))] bg-white text-black">
+                  <div className="font-bold text-black border-b border-black pb-[calc(2px*var(--pad))] mb-[calc(4px*var(--pad))] flex justify-between items-center text-[1em]">
                     <span>รายการทรัพย์สินไอทีที่นำมาฝาก / จำนำ</span>
-                    <span className="text-[9px] px-1.5 py-0.5 border border-black rounded text-black font-medium">
+                    <span className="text-[0.9em] px-1.5 py-0.5 border border-black rounded text-black font-medium">
                       หมวด: {categoryLabel}
                     </span>
                   </div>
-                  <div className="space-y-0.5">
-                    <div className="text-[10.5px] font-bold text-black break-words leading-snug">{contract.item.name}</div>
-                    <div className="text-[9.5px] text-black leading-snug break-words">{contract.item.description}</div>
+                  <div className="space-y-[calc(2px*var(--pad))]">
+                    <div className="text-[1.05em] font-bold text-black break-words">{contract.item.name}</div>
+                    <div className="text-[0.95em] text-black break-words">{contract.item.description}</div>
                     {renderAssetSpecsBlock()}
                   </div>
                 </div>
 
                 {/* Financial Box */}
-                <div className="bg-white border border-black text-black p-2 rounded mb-2 flex justify-between items-center gap-2 text-[10px]">
+                <div className="bg-white border border-black text-black p-[calc(8px*var(--pad))] rounded mb-[calc(8px*var(--gap))] flex justify-between items-center gap-[calc(8px*var(--gap))] text-[1em]">
                   <div className="min-w-0">
-                    <div className="text-black text-[9px]">จำนวนเงินต้นรับจำนำ / ขายฝาก:</div>
-                    <div className="text-base font-bold font-mono tracking-tight text-black leading-snug">
+                    <div className="text-black text-[0.9em]">จำนวนเงินต้นรับจำนำ / ขายฝาก:</div>
+                    <div className="text-[1.6em] font-bold font-mono tracking-tight text-black">
                       {formatCurrency(contract.loanAmount)}
                     </div>
-                    <div className="text-[9px] text-black font-medium break-words">({bahtToText(contract.loanAmount)})</div>
+                    <div className="text-[0.9em] text-black font-medium break-words">({bahtToText(contract.loanAmount)})</div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="text-black text-[9px]">ดอกเบี้ยต่องวด ({formatDurationText(contract.durationMonths, contract.durationDays)}):</div>
-                    <div className="text-sm font-bold font-mono text-black leading-snug">
+                    <div className="text-black text-[0.9em]">ดอกเบี้ยต่องวด ({formatDurationText(contract.durationMonths, contract.durationDays)}):</div>
+                    <div className="text-[1.4em] font-bold font-mono text-black">
                       ฿{periodInterest.toLocaleString()} บาท
                     </div>
-                    <div className="text-[9px] text-black font-normal">
+                    <div className="text-[0.9em] text-black font-normal">
                       (เฉลี่ยเดือนละ {formatCurrency(monthlyInterest)})
                     </div>
                   </div>
                 </div>
 
                 {/* Shop Payment Transfer Info */}
-                <div className="bg-white border border-black rounded p-1.5 mb-1.5 text-[9px] text-black leading-snug">
-                  <div className="font-bold text-black mb-0.5">
+                <div className="bg-white border border-black rounded p-[calc(6px*var(--pad))] mb-[calc(6px*var(--gap))] text-[0.9em] text-black">
+                  <div className="font-bold text-black mb-[calc(2px*var(--pad))]">
                     ช่องทางชำระดอกเบี้ย / โอนเงินต่อสัญญา:
                   </div>
                   <div className="break-words">
                     {settings.bankName || 'ธนาคารกสิกรไทย'} เลขที่ <strong className="font-mono text-black">{settings.bankAccountNumber || '083-4-26805-8'}</strong> ({settings.bankAccountName || 'พัทลุงปริ้นเตอร์ คอมพิวเตอร์'}) · พร้อมเพย์: <strong className="font-mono text-black">{settings.promptPayId || '0834268058'}</strong>
                   </div>
-                  <div className="text-[8.5px] text-black mt-0.5">
+                  <div className="text-[0.85em] text-black mt-[calc(2px*var(--pad))]">
                     * เมื่อโอนชำระเงินแล้วกรุณาส่งสลิปทาง Line: <strong>{settings.lineId || 'poi1800'}</strong> พร้อมแจ้งสัญญา <strong>{contract.contractNumber}</strong>
                   </div>
                 </div>
 
                 {/* Terms Warning */}
-                <div className="text-[8.5px] text-black bg-white p-1.5 rounded border border-black space-y-0.5 leading-snug">
+                <div className="text-[0.85em] text-black bg-white p-[calc(6px*var(--pad))] rounded border border-black space-y-[calc(2px*var(--pad))]">
                   <div>1. โปรดนำตั๋วสัญญาฉบับนี้พร้อมบัตรประชาชนมาแสดงทุกครั้งที่ติดต่อชำระดอกเบี้ยหรือไถ่ถอนทรัพย์สิน</div>
                   <div>2. หากครบกำหนดสัญญาและพ้นระยะเวลาผ่อนผัน <strong>{settings.gracePeriodDays || 15} วัน</strong> ทรัพย์สินจะตกเป็นกรรมสิทธิ์ของผู้รับซื้อฝากโดยเด็ดขาดตามกฎหมาย</div>
                 </div>
@@ -632,13 +720,13 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                     )}
 
                     {/* Customer & Payment Meta */}
-                    <div className="grid grid-cols-2 gap-2 text-[9.5px] mb-2 bg-white p-2 rounded border border-black text-black leading-snug">
-                      <div className="space-y-0.5">
+                    <div className="grid grid-cols-2 gap-[calc(8px*var(--gap))] text-[0.95em] mb-[calc(8px*var(--gap))] bg-white p-[calc(8px*var(--pad))] rounded border border-black text-black">
+                      <div className="space-y-[calc(2px*var(--pad))]">
                         <div className="break-words"><span>ชื่อลูกค้า: </span><strong className="text-black">{customerFullName}</strong></div>
                         <div><span>เลขบัตร: </span><span className="font-mono text-black">{formatCitizenId(contract.customerSnapshot.citizenId)}</span></div>
                         <div><span>เบอร์โทร: </span><span className="font-mono text-black">{formatPhone(contract.customerSnapshot.phone)}</span></div>
                       </div>
-                      <div className="text-right space-y-0.5">
+                      <div className="text-right space-y-[calc(2px*var(--pad))]">
                         <div><span>วันที่ชำระ: </span><strong className="text-black">{formatThaiDateTime(latestInterestReceipt.date)}</strong></div>
                         <div><span>ผู้รับเงิน: </span><strong className="text-black">{latestInterestReceipt.recordedBy}</strong></div>
                         <div><span>ช่องทาง: </span><span className="font-semibold text-black">{latestInterestReceipt.paymentMethod === 'cash' ? 'เงินสด' : 'โอนเงินเข้าบัญชี'}</span></div>
@@ -646,18 +734,18 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                     </div>
 
                     {/* Interest & Extension Details */}
-                    <div className="border border-black rounded p-2 text-[10px] mb-2 space-y-1.5 bg-white text-black leading-snug">
-                      <div className="font-bold text-black flex justify-between items-start gap-2 border-b border-black pb-1">
+                    <div className="border border-black rounded p-[calc(8px*var(--pad))] text-[1em] mb-[calc(8px*var(--gap))] space-y-[calc(6px*var(--pad))] bg-white text-black">
+                      <div className="font-bold text-black flex justify-between items-start gap-[calc(8px*var(--pad))] border-b border-black pb-[calc(4px*var(--pad))]">
                         <span className="break-words">ทรัพย์สินค้ำประกัน: {contract.item.name}</span>
                         <span className="text-black font-mono shrink-0">เงินต้น: {formatCurrency(contract.loanAmount)}</span>
                       </div>
                       
-                      <div className="flex justify-between text-black text-[9.5px]">
+                      <div className="flex justify-between text-black text-[0.95em]">
                         <span>ระยะเวลาที่ต่อสัญญา:</span>
                         <strong className="text-black">{latestInterestReceipt.monthsPaid} เดือน (อัตรา {latestInterestReceipt.ratePercent}% ต่อเดือน)</strong>
                       </div>
 
-                      <div className="border-t border-slate-300 pt-1 space-y-0.5 text-[9.5px]">
+                      <div className="border-t border-slate-300 pt-[calc(4px*var(--pad))] space-y-[calc(2px*var(--pad))] text-[0.95em]">
                         <div className="flex justify-between">
                           <span>๑. ค่าดอกเบี้ยตามงวด:</span>
                           <span className="font-mono font-semibold">{formatCurrency(latestInterestReceipt.interestAmount)}</span>
@@ -676,38 +764,38 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                         )}
                       </div>
                       
-                      <div className="bg-white p-1.5 rounded border border-black flex items-center justify-between text-[9.5px] text-black">
+                      <div className="bg-white p-[calc(6px*var(--pad))] rounded border border-black flex items-center justify-between text-[0.95em] text-black">
                         <div>
                           <div>วันครบกำหนดเดิม:</div>
                           <strong className="text-black">{formatThaiDate(latestInterestReceipt.previousDueDate)}</strong>
                         </div>
-                        <div className="text-black font-bold text-sm">➔</div>
+                        <div className="text-black font-bold text-[1.4em]">➔</div>
                         <div className="text-right">
                           <div className="text-black font-bold">วันครบกำหนดใหม่:</div>
-                          <strong className="text-black font-bold text-[11px] underline">{formatThaiDate(latestInterestReceipt.newDueDate, true)}</strong>
+                          <strong className="text-black font-bold text-[1.1em] underline">{formatThaiDate(latestInterestReceipt.newDueDate, true)}</strong>
                         </div>
                       </div>
 
                       {latestInterestReceipt.note && (
-                        <div className="text-[9px] text-black border-t border-slate-300 pt-1 break-words">
+                        <div className="text-[0.9em] text-black border-t border-slate-300 pt-[calc(4px*var(--pad))] break-words">
                           <strong>หมายเหตุ:</strong> {latestInterestReceipt.note}
                         </div>
                       )}
                     </div>
 
                     {/* Total Amount Banner */}
-                    <div className="bg-white border border-black text-black p-2.5 rounded mb-2 flex justify-between items-center gap-2 text-[10px]">
+                    <div className="bg-white border border-black text-black p-[calc(10px*var(--pad))] rounded mb-[calc(8px*var(--gap))] flex justify-between items-center gap-[calc(8px*var(--gap))] text-[1em]">
                       <div>
-                        <div className="text-black text-[9px]">ยอดเงินดอกเบี้ยที่รับชำระสุทธิ:</div>
-                        <div className="text-base font-bold font-mono text-black leading-snug">{formatCurrency(latestInterestReceipt.totalPaid)}</div>
+                        <div className="text-black text-[0.9em]">ยอดเงินดอกเบี้ยที่รับชำระสุทธิ:</div>
+                        <div className="text-[1.6em] font-bold font-mono text-black">{formatCurrency(latestInterestReceipt.totalPaid)}</div>
                       </div>
                       <div className="text-right">
-                        <div className="text-black text-[9px]">ตัวอักษร:</div>
+                        <div className="text-black text-[0.9em]">ตัวอักษร:</div>
                         <div className="text-black font-medium break-words">({bahtToText(latestInterestReceipt.totalPaid)})</div>
                       </div>
                     </div>
 
-                    <div className="text-[9px] text-black bg-white p-1.5 rounded border border-black leading-snug">
+                    <div className="text-[0.9em] text-black bg-white p-[calc(6px*var(--pad))] rounded border border-black">
                       ใบเสร็จฉบับนี้เป็นหลักฐานการต่ออายุสัญญาขายฝากถึงวันที่ <strong>{formatThaiDate(latestInterestReceipt.newDueDate, true)}</strong> กรุณาเก็บรักษาไว้พร้อมตั๋วสัญญาฉบับจริง
                     </div>
                   </AutoFitPrintContent>
@@ -738,13 +826,13 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                 )}
 
                 {/* Customer & Redemption Meta */}
-                <div className="grid grid-cols-2 gap-2 text-[9.5px] mb-2 bg-white p-2 rounded border border-black text-black leading-snug">
-                  <div className="space-y-0.5">
+                <div className="grid grid-cols-2 gap-[calc(8px*var(--gap))] text-[0.95em] mb-[calc(8px*var(--gap))] bg-white p-[calc(8px*var(--pad))] rounded border border-black text-black">
+                  <div className="space-y-[calc(2px*var(--pad))]">
                     <div className="break-words"><span>ชื่อลูกค้า: </span><strong className="text-black">{customerFullName}</strong></div>
                     <div><span>เลขบัตร: </span><span className="font-mono text-black">{formatCitizenId(contract.customerSnapshot.citizenId)}</span></div>
                     <div><span>เบอร์โทร: </span><span className="font-mono text-black">{formatPhone(contract.customerSnapshot.phone)}</span></div>
                   </div>
-                  <div className="text-right space-y-0.5">
+                  <div className="text-right space-y-[calc(2px*var(--pad))]">
                     <div><span>วันที่ไถ่ถอน: </span><strong className="text-black">{formatThaiDateTime(contract.redemption.redeemDate)}</strong></div>
                     <div><span>ผู้ดำเนินการ: </span><strong className="text-black">{contract.redemption.recordedBy}</strong></div>
                     <div><span>วิธีชำระ: </span><strong>{contract.redemption.paymentMethod === 'cash' ? 'เงินสด' : 'โอนเงินเข้าบัญชี'}</strong></div>
@@ -752,14 +840,14 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                 </div>
 
                 {/* Returned Item & Financial Breakdown */}
-                <div className="border border-black rounded p-2 text-[10px] mb-2 space-y-1 bg-white text-black leading-snug">
-                  <div className="font-bold text-black border-b border-black pb-0.5">
+                <div className="border border-black rounded p-[calc(8px*var(--pad))] text-[1em] mb-[calc(8px*var(--gap))] space-y-[calc(4px*var(--pad))] bg-white text-black">
+                  <div className="font-bold text-black border-b border-black pb-[calc(2px*var(--pad))]">
                     รายการทรัพย์สินที่ส่งมอบคืน: {contract.item.name}
                   </div>
-                  <div className="text-[9.5px] text-black break-words">{contract.item.description}</div>
+                  <div className="text-[0.95em] text-black break-words">{contract.item.description}</div>
                   {renderAssetSpecsBlock()}
                   
-                  <div className="border-t border-black pt-1.5 mt-1 space-y-0.5 text-[9.5px] text-black">
+                  <div className="border-t border-black pt-[calc(6px*var(--pad))] mt-[calc(4px*var(--pad))] space-y-[calc(2px*var(--pad))] text-[0.95em] text-black">
                     <div className="flex justify-between">
                       <span>๑. เงินต้นที่ไถ่ถอน:</span>
                       <strong className="font-mono text-black">{formatCurrency(contract.redemption.principalPaid)}</strong>
@@ -784,18 +872,18 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                 </div>
 
                 {/* Total Banner */}
-                <div className="bg-white border border-black text-black p-2.5 rounded mb-2 flex justify-between items-center gap-2 text-[10px]">
+                <div className="bg-white border border-black text-black p-[calc(10px*var(--pad))] rounded mb-[calc(8px*var(--gap))] flex justify-between items-center gap-[calc(8px*var(--gap))] text-[1em]">
                   <div>
-                    <div className="text-black text-[9px]">ยอดรวมทั้งสิ้นที่ชำระไถ่ถอน:</div>
-                    <div className="text-base font-bold font-mono text-black leading-snug">{formatCurrency(contract.redemption.totalPaid)}</div>
+                    <div className="text-black text-[0.9em]">ยอดรวมทั้งสิ้นที่ชำระไถ่ถอน:</div>
+                    <div className="text-[1.6em] font-bold font-mono text-black">{formatCurrency(contract.redemption.totalPaid)}</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-black text-[9px]">ตัวอักษร:</div>
+                    <div className="text-black text-[0.9em]">ตัวอักษร:</div>
                     <div className="text-black font-medium break-words">({bahtToText(contract.redemption.totalPaid)})</div>
                   </div>
                 </div>
 
-                <p className="text-[9px] text-black bg-white p-1.5 rounded border border-black leading-snug">
+                <p className="text-[0.9em] text-black bg-white p-[calc(6px*var(--pad))] rounded border border-black">
                   ผู้ขายฝากได้รับมอบทรัพย์สินตามรายการข้างต้นคืนในสภาพเรียบร้อย ถูกต้องตามความประสงค์แล้ว และไม่ติดใจเรียกร้องสิทธิใดๆ ต่อไป
                 </p>
               </AutoFitPrintContent>
@@ -814,9 +902,9 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
           {/* ========================================================================= */}
           {format === 'slip' && (
             <div className="print-page shadow-md border border-slate-300 font-contract leading-snug text-[10px] shrink-0">
-              <AutoFitPrintContent depKey={`slip-${contract.id}-${contract.startDate}`}>
+              <AutoFitPrintContent depKey={`slip-${contract.id}-${contract.startDate}-${contract.item.name}-${contract.item.description}`}>
                 {/* Receipt Header adapted cleanly for A5 */}
-                <div className="text-center pb-2 border-b border-dashed border-black mb-2">
+                <div className="text-center pb-[calc(8px*var(--gap))] border-b border-dashed border-black mb-[calc(8px*var(--gap))]">
                   <img
                     src={effectiveLogo}
                     alt="Logo"
@@ -827,24 +915,24 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                     }}
                     className="w-12 h-12 mx-auto mb-1 rounded object-contain bg-white p-0.5 border border-black"
                   />
-                  <div className="font-bold text-sm tracking-tight text-black leading-snug">
+                  <div className="font-bold text-[1.4em] tracking-tight text-black">
                     {settings.shopName || 'พัทลุงปริ้นเตอร์ คอมพิวเตอร์'}
                   </div>
-                  <div className="text-[9.5px] text-black">
+                  <div className="text-[0.95em] text-black">
                     {settings.branchName} · โทร: {settings.phone}
                     {settings.promptPayId ? ` · พร้อมเพย์: ${settings.promptPayId}` : ''}
                   </div>
-                  <div className="inline-block font-bold text-[10.5px] mt-1.5 px-4 py-0.5 border border-black rounded bg-white text-black">
+                  <div className="inline-block font-bold text-[1.05em] mt-[calc(6px*var(--pad))] px-4 py-0.5 border border-black rounded bg-white text-black">
                     ใบตั๋วสลิปขายฝาก / จำนำไอที (A5)
                   </div>
                 </div>
 
                 {/* Key-Value Summary Grid */}
-                <div className="grid grid-cols-2 gap-3 py-2 border-b border-dashed border-black text-[9.5px]">
-                  <div className="space-y-1">
+                <div className="grid grid-cols-2 gap-[calc(12px*var(--gap))] py-[calc(8px*var(--gap))] border-b border-dashed border-black text-[0.95em]">
+                  <div className="space-y-[calc(4px*var(--pad))]">
                     <div className="flex justify-between gap-2">
                       <span>เลขที่สัญญา:</span>
-                      <strong className="font-mono font-bold text-[11px]">{contract.contractNumber}</strong>
+                      <strong className="font-mono font-bold text-[1.1em]">{contract.contractNumber}</strong>
                     </div>
                     <div className="flex justify-between gap-2">
                       <span>วันที่ทำรายการ:</span>
@@ -860,7 +948,7 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="space-y-1 border-l border-dashed border-black pl-3">
+                  <div className="space-y-[calc(4px*var(--pad))] border-l border-dashed border-black pl-3">
                     <div className="break-words">
                       <strong>ผู้ขายฝาก:</strong> {customerFullName}
                     </div>
@@ -877,31 +965,31 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                 </div>
 
                 {/* Asset Summary */}
-                <div className="py-2 border-b border-dashed border-black space-y-1">
-                  <div className="flex justify-between items-center text-[10px]">
+                <div className="py-[calc(8px*var(--gap))] border-b border-dashed border-black space-y-[calc(4px*var(--pad))]">
+                  <div className="flex justify-between items-center text-[1em]">
                     <span className="font-bold">รายการทรัพย์สิน ({categoryLabel}):</span>
                   </div>
-                  <div className="font-bold text-[11px] break-words">{contract.item.name}</div>
-                  <div className="text-[9.5px] text-black break-words">{contract.item.description}</div>
+                  <div className="font-bold text-[1.1em] break-words">{contract.item.name}</div>
+                  <div className="text-[0.95em] text-black break-words">{contract.item.description}</div>
                   {renderAssetSpecsBlock()}
                 </div>
 
                 {/* Financial Totals */}
-                <div className="my-2 p-2.5 border border-black rounded bg-white flex justify-between items-center gap-2">
+                <div className="my-[calc(8px*var(--gap))] p-[calc(10px*var(--pad))] border border-black rounded bg-white flex justify-between items-center gap-[calc(8px*var(--gap))]">
                   <div>
-                    <div className="text-[9px]">เงินต้นที่รับ:</div>
-                    <div className="text-lg font-bold font-mono leading-snug">{formatCurrency(contract.loanAmount)}</div>
-                    <div className="text-[9px] font-medium">({bahtToText(contract.loanAmount)})</div>
+                    <div className="text-[0.9em]">เงินต้นที่รับ:</div>
+                    <div className="text-[1.8em] font-bold font-mono">{formatCurrency(contract.loanAmount)}</div>
+                    <div className="text-[0.9em] font-medium">({bahtToText(contract.loanAmount)})</div>
                   </div>
                   <div className="text-right">
-                    <div className="text-[9px]">ดอกเบี้ย ({contract.monthlyInterestRate}% / เดือน):</div>
-                    <div className="text-sm font-bold font-mono leading-snug">฿{periodInterest.toLocaleString()} / งวด</div>
-                    <div className="text-[9px]">(เฉลี่ย {formatCurrency(monthlyInterest)} / เดือน)</div>
+                    <div className="text-[0.9em]">ดอกเบี้ย ({contract.monthlyInterestRate}% / เดือน):</div>
+                    <div className="text-[1.4em] font-bold font-mono">฿{periodInterest.toLocaleString()} / งวด</div>
+                    <div className="text-[0.9em]">(เฉลี่ย {formatCurrency(monthlyInterest)} / เดือน)</div>
                   </div>
                 </div>
 
                 {/* Transfer Info & Note */}
-                <div className="border border-dashed border-black rounded p-2 text-[9px] space-y-0.5 leading-snug">
+                <div className="border border-dashed border-black rounded p-[calc(8px*var(--pad))] text-[0.9em] space-y-[calc(2px*var(--pad))]">
                   <div>
                     <strong>โอนต่อดอกเบี้ย:</strong> {settings.bankName} เลขบัญชี <strong className="font-mono">{settings.bankAccountNumber}</strong> ({settings.bankAccountName})
                   </div>
@@ -930,10 +1018,10 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
             <div className="flex flex-col items-center gap-4 print:block print:gap-0">
               {/* PAGE 1 OF 2 */}
               <div className="print-page shadow-md border border-slate-300 font-contract leading-snug text-[10px] shrink-0">
-                <AutoFitPrintContent depKey={`full-p1-${contract.id}-${contract.startDate}`}>
+                <AutoFitPrintContent depKey={`full-p1-${contract.id}-${contract.startDate}-${contract.item.name}-${contract.item.description}`}>
                   {/* Formal Contract Header */}
-                  <div className="border-b border-black pb-2 mb-2.5 flex items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                  <div className="border-b border-black pb-[calc(8px*var(--gap))] mb-[calc(10px*var(--gap))] flex items-center justify-between gap-[calc(10px*var(--pad))]">
+                    <div className="flex items-center gap-[calc(10px*var(--pad))] min-w-0 flex-1">
                       <img
                         src={effectiveLogo}
                         alt="Logo"
@@ -945,45 +1033,45 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                         className="w-11 h-11 rounded object-contain bg-white p-0.5 border border-black shrink-0"
                       />
                       <div className="min-w-0 flex-1">
-                        <h1 className="text-[14px] font-bold tracking-tight text-black leading-snug">
+                        <h1 className="text-[1.4em] font-bold tracking-tight text-black">
                           สัญญาขายฝากทรัพย์สินไอทีและคอมพิวเตอร์
                         </h1>
-                        <p className="text-[9.5px] text-black leading-snug break-words">
+                        <p className="text-[0.95em] text-black break-words">
                           ทำขึ้น ณ {settings.shopName} · {settings.address}
                         </p>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="border border-black px-2 py-0.5 rounded text-[9px] font-bold">
+                      <div className="border border-black px-2 py-0.5 rounded text-[0.9em] font-bold">
                         หน้า 1 / 2
                       </div>
-                      <div className="text-[10px] mt-1">
+                      <div className="text-[1em] mt-[calc(4px*var(--pad))]">
                         เลขที่: <strong className="font-mono">{contract.contractNumber}</strong>
                       </div>
                     </div>
                   </div>
 
                   {/* Intro & Parties */}
-                  <div className="space-y-2 text-[10px] leading-relaxed">
-                    <p>
+                  <div className="space-y-[calc(8px*var(--gap))] text-[1em] leading-relaxed">
+                    <p className="break-inside-avoid">
                       สัญญาฉบับนี้ทำขึ้นเมื่อวันที่ <strong>{formatThaiDate(contract.startDate, true)}</strong> ณ {settings.shopName} ({settings.branchName}) ระหว่างคู่สัญญาดังต่อไปนี้:
                     </p>
 
-                    <div className="p-2 rounded border border-black space-y-1.5 bg-white text-[9.5px] leading-snug">
+                    <div className="p-[calc(8px*var(--pad))] rounded border border-black space-y-[calc(6px*var(--pad))] bg-white text-[0.95em] break-inside-avoid">
                       <div className="break-words">
                         <strong>๑) ผู้รับซื้อฝาก:</strong> {settings.shopName} โดย {staffOrManagerName} (เลขประจำตัวผู้เสียภาษี {settings.taxId}) ตั้งอยู่เลขที่ {settings.address} โทร. <span className="font-mono">{formatPhone(settings.phone)}</span> ซึ่งต่อไปในสัญญานี้เรียกว่า <strong>&ldquo;ผู้รับซื้อฝาก&rdquo;</strong> ฝ่ายหนึ่ง กับ
                       </div>
-                      <div className="border-t border-slate-300 pt-1 break-words">
+                      <div className="border-t border-slate-300 pt-[calc(4px*var(--pad))] break-words">
                         <strong>๒) ผู้ขายฝาก:</strong> {customerFullName} บัตรประจำตัวประชาชนเลขที่ <span className="font-mono font-bold">{formatCitizenId(contract.customerSnapshot.citizenId)}</span> ที่อยู่ {contract.customerSnapshot.address} โทร. <span className="font-mono">{formatPhone(contract.customerSnapshot.phone)}</span> ซึ่งต่อไปในสัญญานี้เรียกว่า <strong>&ldquo;ผู้ขายฝาก&rdquo;</strong> อีกฝ่ายหนึ่ง
                       </div>
                     </div>
 
-                    <p className="font-bold text-[10px]">
+                    <p className="font-bold text-[1em] break-inside-avoid">
                       คู่สัญญาทั้งสองฝ่ายตกลงทำสัญญาขายฝากทรัพย์สิน โดยมีข้อความและเงื่อนไขดังต่อไปนี้:
                     </p>
 
                     {/* Clause 1 */}
-                    <div className="space-y-1">
+                    <div className="space-y-[calc(4px*var(--pad))] break-inside-avoid">
                       <div className="break-words">
                         <strong>ข้อ ๑. รายการทรัพย์สินและราคาขายฝาก:</strong> ผู้ขายฝากตกลงขายฝากและได้ส่งมอบทรัพย์สินประเภท <strong>{categoryLabel}</strong> คือ <strong>{contract.item.name}</strong> ({contract.item.description})
                         {contract.item.estimatedValue > 0 && ` ราคาประเมิน ${formatCurrency(contract.item.estimatedValue)}`}
@@ -993,12 +1081,12 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                     </div>
 
                     {/* Clause 2 */}
-                    <div className="break-words">
+                    <div className="break-words break-inside-avoid">
                       <strong>ข้อ ๒. กำหนดเวลาไถ่ถอนและสินน้ำใจ:</strong> คู่สัญญากำหนดระยะเวลาไถ่ถอนทรัพย์สินไว้มีกำหนด <strong>{formatDurationText(contract.durationMonths, contract.durationDays)}</strong> นับแต่วันทำสัญญานี้ โดยมีวันครบกำหนดไถ่ถอนในวันที่ <strong className="underline">{formatThaiDate(contract.dueDate, true)}</strong> ในอัตราดอกเบี้ย/สินน้ำใจร้อยละ <strong>{contract.monthlyInterestRate}% ต่อเดือน</strong> (คิดเป็นค่าตอบแทนต่องวด <strong>{formatCurrency(periodInterest)}</strong> หรือเฉลี่ยเดือนละ {formatCurrency(monthlyInterest)})
                     </div>
 
                     {/* Clause 3 */}
-                    <div className="break-words">
+                    <div className="break-words break-inside-avoid">
                       <strong>ข้อ ๓. การผิดนัดและผลของการพ้นกำหนดเวลา:</strong> หากผู้ขายฝากมิได้มาใช้สิทธิไถ่ถอนหรือติดต่อขอขยายระยะเวลาภายในกำหนดเวลาในข้อ ๒ และพ้นกำหนดระยะเวลาผ่อนผันอีก <strong>{settings.gracePeriodDays || 15} วัน</strong> นับจากวันครบกำหนด ให้ถือว่าผู้ขายฝากสละสิทธิในการไถ่ถอน และกรรมสิทธิ์ในทรัพย์สินที่ขายฝากตกเป็นของผู้รับซื้อฝากโดยเด็ดขาดทันทีตามกฎหมาย โดยผู้รับซื้อฝากมีสิทธินำทรัพย์สินออกจำหน่ายจ่ายโอนได้ทันที
                     </div>
                   </div>
@@ -1016,25 +1104,25 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
 
               {/* PAGE 2 OF 2 (WITH SIGNATURE BLOCK AT BOTTOM) */}
               <div className="print-page shadow-md border border-slate-300 font-contract leading-snug text-[10px] shrink-0">
-                <AutoFitPrintContent depKey={`full-p2-${contract.id}-${contract.startDate}`}>
+                <AutoFitPrintContent depKey={`full-p2-${contract.id}-${contract.startDate}-${termsLines.length}`}>
                   {/* Page 2 Mini Header */}
-                  <div className="border-b border-black pb-1.5 mb-2.5 flex justify-between items-center text-[9.5px]">
-                    <div className="font-bold text-[11px]">
+                  <div className="border-b border-black pb-[calc(6px*var(--gap))] mb-[calc(10px*var(--gap))] flex justify-between items-center text-[0.95em]">
+                    <div className="font-bold text-[1.1em]">
                       สัญญาขายฝากทรัพย์สินไอทีและคอมพิวเตอร์ (ต่อ)
                     </div>
                     <div className="flex items-center gap-2">
                       <span>เลขที่: <strong className="font-mono">{contract.contractNumber}</strong></span>
-                      <span className="border border-black px-2 py-0.5 rounded font-bold text-[9px]">หน้า 2 / 2</span>
+                      <span className="border border-black px-2 py-0.5 rounded font-bold text-[0.9em]">หน้า 2 / 2</span>
                     </div>
                   </div>
 
-                  <div className="space-y-2.5 text-[10px] leading-relaxed">
+                  <div className="space-y-[calc(10px*var(--gap))] text-[1em] leading-relaxed">
                     {/* Clause 4: Shop Terms */}
-                    <div className="border border-black rounded p-2.5 bg-white space-y-1">
-                      <div className="font-bold border-b border-black pb-0.5 text-[10.5px]">
+                    <div className="border border-black rounded p-[calc(10px*var(--pad))] bg-white space-y-[calc(4px*var(--pad))] break-inside-avoid">
+                      <div className="font-bold border-b border-black pb-[calc(2px*var(--pad))] text-[1.05em]">
                         ข้อ ๔. เงื่อนไขการรับฝาก การตรวจสอบ และความรับผิดชอบของคู่สัญญา
                       </div>
-                      <div className="space-y-1 text-[9.5px] leading-snug">
+                      <div className="space-y-[calc(4px*var(--pad))] text-[0.95em]">
                         {termsLines.length > 0 ? (
                           termsLines.map((line, idx) => (
                             <div key={idx} className="break-words">{line}</div>
@@ -1050,8 +1138,8 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                     </div>
 
                     {/* Clause 5: Payment Channels */}
-                    <div className="border border-black rounded p-2.5 bg-white space-y-1 text-[9.5px] leading-snug">
-                      <div className="font-bold border-b border-black pb-0.5 text-[10.5px]">
+                    <div className="border border-black rounded p-[calc(10px*var(--pad))] bg-white space-y-[calc(4px*var(--pad))] text-[0.95em] break-inside-avoid">
+                      <div className="font-bold border-b border-black pb-[calc(2px*var(--pad))] text-[1.05em]">
                         ข้อ ๕. ช่องทางชำระดอกเบี้ย / ไถ่ถอน และการติดต่อร้าน
                       </div>
                       <div>
@@ -1066,7 +1154,7 @@ export const PrintTicketModal: React.FC<PrintTicketModalProps> = ({
                     </div>
 
                     {/* Legal Closing Affirmation */}
-                    <div className="p-2 border border-dashed border-black rounded text-[9.5px] leading-snug">
+                    <div className="p-[calc(8px*var(--pad))] border border-dashed border-black rounded text-[0.95em] break-inside-avoid">
                       คู่สัญญาทั้งสองฝ่ายได้อ่านและเข้าใจข้อความในสัญญาขายฝากฉบับนี้ (หน้า 1/2 และหน้า 2/2) โดยตลอดแล้ว เห็นว่าถูกต้องตรงตามเจตนาทุกประการ จึงได้ลงลายมือชื่อและประทับตรา (ถ้ามี) ไว้เป็นหลักฐานสำคัญต่อหน้าพยาน
                     </div>
                   </div>

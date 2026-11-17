@@ -51,6 +51,14 @@
   min-height: 0;
 }
 
+.print-doc-scale {
+  --fs: 1;
+  --gap: 1;
+  --pad: calc(1 + (var(--gap) - 1) * 0.65);
+  font-size: calc(10px * var(--fs));
+  line-height: calc(1.375 + (var(--fs) - 1) * 0.35);
+}
+
 .signature-block {
   margin-top: auto; /* ดันลงติดขอบล่าง (ห่าง 6 มม.) */
   flex: 0 0 auto;
